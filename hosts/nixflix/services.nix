@@ -119,6 +119,10 @@ in
         ];
       };
   systemd.services.recyclarr = {
+    serviceConfig = {
+      UMask = "0077";
+      StateDirectoryMode = "0700";
+    };
     after = lib.mkForce [
       "nixflix-staging-network.service"
       "sonarr.service"
@@ -133,7 +137,7 @@ in
       "radarr.service"
       "radarr-4k.service"
     ];
-    preStart = lib.mkBefore "cp /etc/nixflix/recyclarr-settings.yml /var/lib/recyclarr/settings.yml";
+    preStart = lib.mkBefore "install -m 600 /etc/nixflix/recyclarr-settings.yml /var/lib/recyclarr/settings.yml";
   };
   services.plex = {
     enable = true;
@@ -187,7 +191,8 @@ in
         PGID = "169";
         TZ = "America/Chicago";
       }
-      // lib.optionalAttrs (name == "audiobookshelf") { PORT = "13378"; };
+      // lib.optionalAttrs (name == "audiobookshelf") { PORT = "13378"; }
+      // lib.optionalAttrs (name == "bazarr-4k") { WEBUI_PORTS = "6777/tcp"; };
       volumes =
         if name == "stash" then
           [
@@ -208,7 +213,10 @@ in
             "/data/media/ebooks:/ebooks:ro"
             "/data/media/podcasts:/podcasts:ro"
           ];
-      extraOptions = [ "--network=ns:/run/netns/nixflix-staging" ];
+      extraOptions = [
+        "--network=ns:/run/netns/nixflix-staging"
+        "--cgroup-parent=nixflix-staging.slice"
+      ];
     }) containers;
   };
   users.users.media-container = {

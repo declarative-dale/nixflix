@@ -4,6 +4,7 @@
     ./hardware-configuration.nix
     ./services.nix
     ./staging.nix
+    ./gpu.nix
     (modulesPath + "/virtualisation/xen-domU.nix")
   ];
   boot.loader.systemd-boot.enable = true;
