@@ -1,9 +1,14 @@
 {
   "domain": "vm.internal",
   "address": "10.69.0.18",
+  "routerAddress": "10.69.0.1",
+  "publicNames": { "seerr": "seeme" },
+  "publicAuthServices": ["prowlarr", "readarr", "mylar3", "lidarr", "tautulli"],
+  "publicServices": ["plex", "seerr", "prowlarr", "audiobookshelf", "readarr", "mylar3", "lidarr", "tautulli"],
   "services": {
     "plex": 32400,
     "seerr": 5055,
+    "seeme": 5055,
     "sonarr": 8990,
     "sonarr-4k": 8989,
     "radarr": 7879,

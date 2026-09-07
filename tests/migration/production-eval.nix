@@ -23,6 +23,8 @@ in
 assert cfg.nixflixHost.production.enable;
 assert builtins.elem "rw" cfg.fileSystems."/data".options;
 assert cfg.networking.firewall.allowedTCPPorts == [ 22 ];
+assert pkgs.lib.hasInfix "iptables -A nixos-fw -p tcp --dport 32400 -j nixos-fw-accept"
+  cfg.networking.firewall.extraCommands;
 assert builtins.all (
   name:
   pkgs.lib.hasInfix "reverse_proxy http://127.0.0.1:${
@@ -30,6 +32,23 @@ assert builtins.all (
   }" cfg.services.caddy.virtualHosts."http://${name}.${localServices.domain}".extraConfig
 ) (builtins.attrNames localServices.services);
 assert !(builtins.elem "plex.vm.internal" (cfg.networking.hosts."127.0.0.1" or [ ]));
+assert builtins.all
+  (
+    name:
+    !(cfg.services.caddy.virtualHosts ? "http://${name}.dalebox.pw")
+    && !(builtins.elem name localServices.publicServices)
+  )
+  [
+    "stash"
+    "whisparr"
+    "sonarr"
+    "sonarr-4k"
+    "radarr"
+    "radarr-4k"
+    "sabnzbd"
+    "bazarr"
+    "bazarr-4k"
+  ];
 assert pkgs.lib.hasInfix "-s 10.42.0.0/24 -p tcp --dport 32400 -j nixos-fw-accept"
   cfg.networking.firewall.extraCommands;
 assert cfg.virtualisation.oci-containers.backend == "podman";

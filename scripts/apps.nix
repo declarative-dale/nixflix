@@ -40,6 +40,8 @@ in
   route-seerr = script "route-seerr" [ pkgs.openssh ];
   router-dns = script "router-dns" [ pkgs.openssh ];
   router-https = script "router-https" [ pkgs.openssh ];
+  public-dns = script "public-dns" [ pkgs.openssh ];
+  plex-remote = script "plex-remote" [ ];
   verify-production = script "verify-production" [
     pkgs.systemd
     pkgs.util-linux

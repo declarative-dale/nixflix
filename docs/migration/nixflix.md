@@ -4,113 +4,119 @@ The personal fork `declarative-dale/nixflix` manages `marty@10.69.0.18`.
 `kiriwalawren/nixflix` is an upstream remote. A push never deploys the VM.
 The host uses locked NixOS 26.05; the project's original unstable input is retained.
 
-## Local service addresses and router DNS
+## HTTPS, DNS and remote access
 
-### Publicly trusted HTTPS: router preparation
+The service manifest `hosts/nixflix/local-services.json` controls the router's
+proxy and DNS configuration. Every media service has a LAN-only address under
+`vm.internal`, using Caddy's built-in CA and standard HTTPS port 443. For example:
 
-The selected HTTPS names are `https://stash.dalebox.pw/`,
-`https://whisparr.dalebox.pw/`, `https://plex.dalebox.pw/web/` and the other
-manifest service names under `dalebox.pw`. **This HTTPS setup is prepared but
-inactive until the Cloudflare DNS token is provisioned and issuance verified.**
-The working `vm.internal` HTTP addresses below remain available.
+- `https://plex.vm.internal/web/` → `http://10.69.0.18:32400/web/`
+- `https://stash.vm.internal/` → `http://10.69.0.18:9999/`
+- `https://whisparr.vm.internal/` → `http://10.69.0.18:6969/`
+- `https://seeme.vm.internal/` and `https://seerr.vm.internal/` → Seerr
 
-The router now has `os-caddy` 2.2.1 and its Caddy dependency installed. The native
-GUI configuration contains a `*.dalebox.pw` wildcard using Cloudflare DNS-01,
-17 subdomains and upstream handlers derived from the service manifest. Router
-Caddy will terminate TLS and forward to each application's existing `.18` port.
-Certificates and renewal state stay on the router. Dynamic DNS is disabled;
-certificate validation must not replace the existing public tunnel records.
-The wildcard has an access list for `10.69.0.0/24` and `10.42.0.0/24`.
+Paths are preserved. Router Unbound resolves these names to `10.69.0.1` from
+both the VM and client LAN resolvers (`10.69.0.1` and `10.42.0.1`). Caddy accepts
+internal application requests only from `10.69.0.0/24` and `10.42.0.0/24`.
+HTTP redirects to HTTPS; no application port is needed in browser URLs.
 
-Custom bind imports under `/usr/local/etc/caddy/caddy.d/nixflix-bind.*` constrain
-HTTP/HTTPS listeners to the router's static `10.69.0.1`. Its administration GUI
-stays on `10.42.0.1:443`. Model validation passed; an offline Caddy adaptation
-with a disposable placeholder token confirmed the intended listeners. Real-token
-certificate validation and end-to-end HTTPS checks are still required.
+Install Caddy's **public root certificate** into each client device's trusted
+certificate authorities to avoid internal HTTPS trust errors. The router copy is
+`/var/db/caddy/data/caddy/pki/authorities/local/root.crt`. Export only that file;
+private CA keys stay on the router. The CA and certificate renewal state under
+`/var/db/caddy` must be backed up securely. Public certificates for `dalebox.pw`
+use Let's Encrypt and do not need this private root installed.
 
-Prepare from the workstation with an authenticated SSH key or multiplex socket:
+Only the `publicServices` allowlist receives public-domain routes. `publicNames`
+maps Seerr to its existing `seeme` hostname. The selected public URLs are:
+
+| Service | Public URL | Authentication |
+| --- | --- | --- |
+| Plex | `https://plex.dalebox.pw/web/` | Plex account |
+| Seerr | `https://seeme.dalebox.pw/` | Existing Seerr/Plex login |
+| Audiobookshelf | `https://audiobookshelf.dalebox.pw/` | Existing application login |
+| Prowlarr | `https://prowlarr.dalebox.pw/` | Router login plus application login |
+| Lidarr | `https://lidarr.dalebox.pw/` | Router login plus application login |
+| Readarr | `https://readarr.dalebox.pw/` | Router login |
+| Mylar3 | `https://mylar3.dalebox.pw/` | Router login |
+| Tautulli | `https://tautulli.dalebox.pw/` | Router login; finish application setup |
+
+Stash, Whisparr, Sonarr, Radarr, SABnzbd and both Bazarr instances have no managed
+public-domain routes or public DNS records. No public wildcard DNS record is
+created. A wildcard *certificate* does not publish wildcard DNS. Jellyfin and
+ntfy are not enabled on this VM and have no new routes.
+
+The additional public dashboard username is `nixflix`; retrieve its generated
+password securely with `pass show secretspec/nixflix/router_web/BASIC_AUTH_PASSWORD`
+on `.18`. It is generated once, encrypted in pass, resolved by SecretSpec, and
+only a bcrypt hash is stored in router Caddy's authentication settings. Internal
+routes retain application-native authentication. Plex and Audiobookshelf clients
+use native application authentication, without an additional router prompt.
+
+Router Caddy listens on static `10.69.0.1:80/443`. OPNsense forwards WAN TCP
+80/443 there, preserving its management GUI at `10.42.0.1:443`. Public website
+HTTP requests redirect to HTTPS; WAN access to internal-name applications is
+rejected. Public DNS uses explicit IPv4 records for the allowed names pointing
+to the WAN address, with Cloudflare proxying disabled. The previous Seerr tunnel
+DNS record is backed up before changing it; its Ubuntu relay can remain for
+rollback until direct WAN ingress has been verified.
+
+Plex additionally has a dedicated **WAN TCP 32400 → 10.69.0.18:32400** forward,
+as requested for native Plex remote access and library sharing. This is separate
+from the public website's port 443. The VM allows inbound IPv4 TCP 32400; other
+application ports remain LAN-restricted and the global IPv6 firewall stays closed.
+Plex is configured with manual public port 32400 and advertises
+`https://plex.dalebox.pw:443` as an additional custom access URL. Do not replace
+Plex's native certificate or server identity. See
+[Plex's remote-access guidance](https://support.plex.tv/articles/200289506-remote-access/).
+
+### Managed router commands
+
+Run these flake apps from the workstation with an authenticated router SSH key,
+or append `--control-path PATH` to reuse a temporary authenticated SSH session:
 
 ```sh
 nix run .#router-https -- plan
-nix run .#router-https -- prepare
-```
-
-Preparation refuses to alter an enabled proxy or unrelated domains, saves a
-root-only router backup in `/conf/nixflix-https-backups/`, preserves credentials,
-and leaves the proxy disabled. Repeated preparation has no changes. It does not
-publish DNS records or start certificate issuance. Custom bind files are managed
-alongside the XML configuration; include both in router backups and rollback.
-
-Create a Cloudflare API token scoped to **only `dalebox.pw`**, with **Zone:Read**
-and **DNS:Edit**, as required by the
-[Caddy Cloudflare provider](https://github.com/caddy-dns/cloudflare#configuration).
-Store it in pass on `.18` from the workstation using an interactive SSH session:
-
-```sh
-ssh -t marty@10.69.0.18 'pass insert secretspec/nixflix/public_tls/CLOUDFLARE_DNS_API_TOKEN'
-```
-
-The SecretSpec `public_tls` profile declares that entry. The remaining activation
-work is to resolve it through pass/SecretSpec and securely provision the router's
-Caddy DNS API field, validate the real generated configuration, enable Caddy,
-and verify the certificate chain and every route with `curl --resolve` before
-publishing local DNS. The router UI field is Services → Caddy Web Server →
-General Settings → DNS Provider. Do not paste the token into chat or the repo.
-
-After HTTPS verification, publish **router-local** overrides (these commands do
-not touch Cloudflare's public DNS records):
-
-```sh
-nix run .#router-dns -- plan --zone public
-nix run .#router-dns -- apply --zone public
-```
-
-This maps the 17 service names under `dalebox.pw` to `10.69.0.1` for clients using
-router DNS. `--zone internal` remains the default and continues to map
-`vm.internal` names to `.18`. Public-zone DNS publication is pending; the HTTPS
-links above are planned addresses, not a claim they currently serve these apps.
-
-### Working internal HTTP addresses
-
-Use `http://plex.vm.internal/web/`, `http://seerr.vm.internal/`,
-`http://sonarr.vm.internal/` or the other service names in
-`hosts/nixflix/local-services.json`. Every name resolves to `10.69.0.18`;
-Caddy selects the application port from the HTTP hostname. The manifest supplies
-both the Caddy routes and router DNS overrides. These internal URLs use HTTP.
-
-OPNsense Unbound serves DNS on `10.69.0.1` for the VM subnet and `10.42.0.1`
-for the client LAN. Its existing dnsmasq DHCP integration remains intact, including
-the `vm.internal` VM search domain and `lan.internal` client search domain.
-Use full names from either subnet. Nixflix already receives `10.69.0.1` through
-DHCP; no local loopback hosts entry replaces router resolution. Clients using a
-public or browser-specific DNS resolver must use the router for this private zone.
-
-From the workstation, authenticate to the router using SSH, then manage records:
-
-```sh
+nix run .#router-https -- apply
+nix run .#router-https -- ingress-plan
+nix run .#router-https -- ingress-apply
 nix run .#router-dns -- plan
 nix run .#router-dns -- apply
-nix develop -c dig @10.69.0.1 plex.vm.internal A
-nix develop -c dig @10.42.0.1 plex.vm.internal A
+nix run .#router-dns -- apply --zone public
+nix run .#public-dns -- plan --address WAN_IPV4
+nix run .#public-dns -- apply --address WAN_IPV4
 ```
 
-The app defaults to `root@10.42.0.1`, requires an authenticated SSH session or
-key, and accepts `--control-path PATH` for an existing multiplexed session.
-It stores no router password. Plan validates OPNsense's native Unbound model
-without saving. Apply saves a root-only backup under `/conf/nixflix-dns-backups/`
-on the router, records a native configuration revision, then regenerates/restarts
-Unbound. Repeated apply with unchanged records does not save or restart anything.
-Backups contain router secrets and must stay protected. Existing unrelated DNS
-records are preserved; conflicting unowned overrides or aliases cause failure.
+Validate certificates and authentication using `curl --resolve` before publishing
+DNS. `--zone public` changes only router-local DNS; `public-dns` explicitly
+changes Cloudflare records. A Git push never changes router or VM configuration.
+The router DNS app preserves unrelated overrides and refuses unowned conflicts.
 
-For a new service, edit the manifest, run repository checks, commit/push with
-`jj`, then test-deploy Caddy and verify the route before applying DNS. Finish with
-the normal switch command. Neither a push nor a NixOS deployment automatically
-changes router DNS. `nix run .#router-dns -- remove` removes only the current
-manifest's marked nixflix overrides; run it with the old manifest before retiring
-names, then apply the revised manifest. System rollback does not roll back router
-DNS. SABnzbd's managed startup adds its internal hostname to its allowlist while
-preserving existing entries.
+`secretspec-router.toml` declares separate `public_tls` and `router_web` profiles,
+without inheriting required application secrets. The Cloudflare token remains in
+`secretspec/nixflix/public_tls/CLOUDFLARE_DNS_API_TOKEN` in pass on `.18`; it needs
+Zone Read and DNS Edit only for `dalebox.pw`. No account ID is needed. Provisioning
+resolves the token through SecretSpec/pass, transfers it only through authenticated
+SSH, and persists it in protected router configuration for unattended renewal.
+Never print tokens or put them in command arguments, the repo or the Nix store.
+
+The HTTPS app validates OPNsense's model, regenerates both service and Caddyfile
+templates, validates with the service's actual certificate storage environment,
+and verifies Caddy is running. Native GUI settings contain the public routes;
+managed `nixflix-*.conf`/`.global` imports add internal CA routes and static binds.
+The ingress app manages native DNAT records for only the three requested ports,
+preserving unrelated infrastructure forwards. Configuration backups are root-only
+under `/conf/nixflix-https-backups/` and `/conf/nixflix-dns-backups/` on the router.
+Cloudflare DNS rollback records are under `/var/lib/nixflix-migration/public-dns-*.json`
+on `.18`. Restore only the intended changes when rolling back; VM generations do
+not roll back router configuration, DNS records, certificates or application data.
+
+After deploying the repository revision, run on `.18`:
+
+```sh
+sudo nix run .#plex-remote -- apply
+sudo nix run .#plex-remote -- status
+```
 
 ## Production cutover, September 7
 

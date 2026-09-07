@@ -12,7 +12,7 @@ $action = $input['action'];
 $manifest = $input['manifest'];
 if (!in_array($action, ['plan', 'apply', 'remove'], true) || !in_array(
     [$manifest['domain'], $manifest['address']],
-    [['vm.internal', '10.69.0.18'], ['dalebox.pw', '10.69.0.1']], true
+    [['vm.internal', '10.69.0.1'], ['dalebox.pw', '10.69.0.1']], true
 )) {
     throw new RuntimeException('Unexpected DNS provisioning target');
 }

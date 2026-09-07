@@ -31,7 +31,12 @@ in
   config = lib.mkIf cfg.enable {
     # Keep globally routed IPv6 closed; the initial service audience is the LAN.
     networking.firewall.allowedTCPPorts = lib.mkForce [ 22 ];
-    networking.firewall.extraCommands = lib.concatMapStringsSep "\n" (
+    networking.firewall.extraCommands = ''
+      # Dedicated Plex remote access; router forwards WAN TCP 32400 here.
+      # IPv6 remains closed; other media apps are reached through router Caddy.
+      iptables -A nixos-fw -p tcp --dport 32400 -j nixos-fw-accept
+    ''
+    + lib.concatMapStringsSep "\n" (
       network:
       lib.concatMapStringsSep "\n" (
         port: "iptables -A nixos-fw -s ${network} -p tcp --dport ${toString port} -j nixos-fw-accept"

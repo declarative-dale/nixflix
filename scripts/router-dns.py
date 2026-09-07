@@ -25,8 +25,13 @@ def main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     manifest = json.loads((root / "hosts/nixflix/local-services.json").read_text())
+    manifest["address"] = manifest["routerAddress"]
     if args.zone == "public":
-        manifest.update(domain="dalebox.pw", address="10.69.0.1")
+        manifest.update(domain="dalebox.pw")
+        manifest["services"] = {
+            manifest.get("publicNames", {}).get(name, name): manifest["services"][name]
+            for name in manifest["publicServices"]
+        }
     code = (root / "scripts/router-dns.php").read_text().removeprefix("<?php")
     # PHP code is encoded to pass intact through either csh or a POSIX login shell.
     command = [
