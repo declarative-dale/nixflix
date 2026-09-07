@@ -76,6 +76,9 @@
           ./hosts/nixflix
         ];
       };
+      nixosConfigurations.nixflix-production = self.nixosConfigurations.nixflix.extendModules {
+        modules = [ { nixflixHost.production.enable = true; } ];
+      };
 
       packages = perSystem (
         {

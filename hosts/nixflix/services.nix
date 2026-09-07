@@ -1,17 +1,20 @@
 {
+  config,
   lib,
   pkgs,
   inputs,
   ...
 }:
 let
+  production = config.nixflixHost.production.enable;
+  bindAddress = if production then "0.0.0.0" else "127.0.0.1";
   secret = name: { _secret = "/var/lib/nixflix-secrets/current/${name}"; };
   arr = name: port: {
     enable = true;
     config.apiKey = secret name;
     config.hostConfig = {
       inherit port;
-      bindAddress = "127.0.0.1";
+      inherit bindAddress;
       username = null;
     };
     # Preserve restored root folders; do not run automatic deletion/reconciliation.
@@ -69,7 +72,7 @@ in
       enable = true;
       config.apiKey = secret "prowlarr";
       config.hostConfig = {
-        bindAddress = "127.0.0.1";
+        inherit bindAddress;
         username = null;
       };
     };
@@ -79,7 +82,7 @@ in
       settings.misc = {
         api_key = secret "sabnzbd";
         nzb_key = secret "sabnzbd";
-        host = "127.0.0.1";
+        host = bindAddress;
         port = 8080;
       };
     };
@@ -167,7 +170,7 @@ in
       ${pkgs.python3.withPackages (p: [ p.configobj ])}/bin/python3 - <<'PY'
       from configobj import ConfigObj
       c = ConfigObj('/var/lib/sabnzbd/sabnzbd.ini')
-      c['misc']['host'] = '127.0.0.1'
+      c['misc']['host'] = '${bindAddress}'
       c['misc']['port'] = '8080'
       c['misc']['api_key'] = open('/var/lib/nixflix-secrets/current/sabnzbd').read().strip()
       if 'categories' not in c:
@@ -183,48 +186,59 @@ in
   virtualisation.podman.enable = true;
   virtualisation.oci-containers = {
     backend = "podman";
-    containers = lib.mapAttrs (name: _c: {
-      image = images.${name};
-      autoStart = false;
-      environment = {
-        PUID = "1100";
-        PGID = "169";
-        TZ = "America/Chicago";
-      }
-      // lib.optionalAttrs (name == "audiobookshelf") { PORT = "13378"; }
-      // lib.optionalAttrs (name == "bazarr-4k") { WEBUI_PORTS = "6777/tcp"; }
-      // lib.optionalAttrs (name == "stash") {
-        STASH_CACHE = "/cache/";
-        STASH_STASH = "/data/";
-        STASH_GENERATED = "/generated/";
-        STASH_METADATA = "/metadata/";
-        STASH_CONFIG_FILE = "/root/.stash/config.yml";
-      };
-      volumes =
-        if name == "stash" then
-          [
-            "/var/lib/nixflix-containers/stash/config:/root/.stash"
-            "/var/lib/nixflix-containers/stash/generated:/generated"
-            "/var/lib/nixflix-containers/stash/metadata:/metadata"
-            "/var/lib/nixflix-containers/stash/cache:/cache"
-            "/data/media/porn:/data:ro"
-          ]
-        else
-          [
-            "/var/lib/nixflix-containers/${name}:/config"
-            "/data:/data:ro"
-          ]
-          ++ lib.optionals (name == "audiobookshelf") [
-            "/var/lib/nixflix-containers/audiobookshelf-metadata:/metadata"
-            "/data/media/audiobooks:/audiobooks:ro"
-            "/data/media/ebooks:/ebooks:ro"
-            "/data/media/podcasts:/podcasts:ro"
+    containers =
+      lib.mapAttrs
+        (name: _c: {
+          image = images.${name};
+          autoStart = false;
+          environment = {
+            PUID = "1100";
+            PGID = "169";
+            TZ = "America/Chicago";
+          }
+          // lib.optionalAttrs (name == "audiobookshelf") { PORT = "13378"; }
+          // lib.optionalAttrs (name == "bazarr-4k") { WEBUI_PORTS = "6777/tcp"; }
+          // lib.optionalAttrs (name == "stash") {
+            STASH_CACHE = "/cache/";
+            STASH_STASH = "/data/";
+            STASH_GENERATED = "/generated/";
+            STASH_METADATA = "/metadata/";
+            STASH_CONFIG_FILE = "/root/.stash/config.yml";
+          };
+          volumes =
+            if name == "stash" then
+              [
+                "/var/lib/nixflix-containers/stash/config:/root/.stash"
+                "/var/lib/nixflix-containers/stash/generated:/generated"
+                "/var/lib/nixflix-containers/stash/metadata:/metadata"
+                "/var/lib/nixflix-containers/stash/cache:/cache"
+                "/data/media/porn:/data:ro"
+              ]
+            else
+              [
+                "/var/lib/nixflix-containers/${name}:/config"
+                ("/data:/data" + lib.optionalString (!production) ":ro")
+              ]
+              ++ lib.optionals (name == "audiobookshelf") [
+                "/var/lib/nixflix-containers/audiobookshelf-metadata:/metadata"
+                "/data/media/audiobooks:/audiobooks:ro"
+                "/data/media/ebooks:/ebooks:ro"
+                ("/data/media/podcasts:/podcasts" + lib.optionalString (!production) ":ro")
+              ];
+          extraOptions = [
+            (if production then "--network=host" else "--network=ns:/run/netns/nixflix-staging")
+            "--cgroup-parent=nixflix-staging.slice"
           ];
-      extraOptions = [
-        "--network=ns:/run/netns/nixflix-staging"
-        "--cgroup-parent=nixflix-staging.slice"
-      ];
-    }) containers;
+        })
+        (
+          lib.filterAttrs (
+            name: _:
+            lib.elem name [
+              "mylar3"
+              "stash"
+            ]
+          ) containers
+        );
   };
   users.users.media-container = {
     isSystemUser = true;

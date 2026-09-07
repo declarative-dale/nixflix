@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
 
 INSTANCES = {
     "sonarr": (8990, "WEB-1080p (Alternative)"),
@@ -15,11 +16,13 @@ INSTANCES = {
     "radarr": (7879, "[SQP] SQP-1 (1080p)"),
     "radarr-4k": (7878, "[SQP] SQP-1 (2160p)"),
     "lidarr": (8686, None),
+    "readarr": (8787, None),
+    "whisparr": (6969, None),
 }
 
 
 def api(port, key, method, path, value=None, version="v3"):
-    if port == 8686:
+    if port in (8686, 8787):
         version = "v1"
     req = Request(
         f"http://127.0.0.1:{port}/api/{version}/{path}",
@@ -33,6 +36,8 @@ def api(port, key, method, path, value=None, version="v3"):
 
 
 def secret(name):
+    if name in ("readarr", "whisparr"):
+        return ET.parse(Path("/var/lib", name, "config.xml")).findtext("ApiKey")
     return Path("/var/lib/nixflix-secrets/current", name).read_text().strip()
 
 
@@ -57,6 +62,57 @@ def main():
         )
     for name, (port, _) in INSTANCES.items():
         key = secret(name)
+        # Preserve connection definitions, but do not revive retired webhook/bot
+        # destinations while the user provisions Discord and Matrix.
+        for notification in api(port, key, "GET", "notification"):
+            changed = False
+            for field in notification:
+                if field.startswith("on") and notification[field] is True:
+                    notification[field] = False
+                    changed = True
+            if changed:
+                api(
+                    port,
+                    key,
+                    "PUT",
+                    f"notification/{notification['id']}?forceSave=true",
+                    notification,
+                )
+        for item in api(port, key, "GET", "importlist"):
+            changed = False
+            for field in item.get("fields", []):
+                value = field.get("value")
+                if not isinstance(value, str) or not value.startswith(
+                    ("http://", "https://")
+                ):
+                    continue
+                url = urlsplit(value)
+                if url.hostname in (
+                    "10.69.0.12",
+                    "sonarr",
+                    "sonarr2",
+                    "radarr",
+                    "radarr2",
+                    "prowlarr",
+                    "overseerr",
+                ):
+                    if url.port in (
+                        8990,
+                        8989,
+                        7879,
+                        7878,
+                        8686,
+                        8787,
+                        6969,
+                        9696,
+                        5055,
+                    ):
+                        field["value"] = url._replace(
+                            netloc=f"127.0.0.1:{url.port}"
+                        ).geturl()
+                        changed = True
+            if changed:
+                api(port, key, "PUT", f"importlist/{item['id']}?forceSave=true", item)
         for client in api(port, key, "GET", "downloadclient"):
             if client["implementation"] != "Sabnzbd":
                 continue
@@ -67,9 +123,15 @@ def main():
                 "apiKey": secret("sabnzbd"),
             }.items():
                 fields[field]["value"] = value
-            for field in ("tvCategory", "movieCategory", "musicCategory"):
+            for field in (
+                "tvCategory",
+                "movieCategory",
+                "musicCategory",
+                "bookCategory",
+            ):
                 if field in fields:
-                    fields[field]["value"] = name
+                    if name not in ("readarr", "whisparr"):
+                        fields[field]["value"] = name
             api(
                 port,
                 key,

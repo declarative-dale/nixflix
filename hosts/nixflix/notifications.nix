@@ -1,5 +1,11 @@
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
+  production = config.nixflixHost.production.enable;
   arr = [
     "sonarr"
     "sonarr-4k"
@@ -32,8 +38,8 @@ in
       "/run/nixflix-apprise:/config:ro"
       "/var/lib/nixflix-apprise:/storage"
     ];
-    extraOptions = [
-      "--network=ns:/run/netns/nixflix-staging"
+    ports = lib.optional production "127.0.0.1:8000:8000";
+    extraOptions = lib.optional (!production) "--network=ns:/run/netns/nixflix-staging" ++ [
       "--cgroup-parent=nixflix-staging.slice"
     ];
   };
@@ -99,7 +105,7 @@ in
           "/var/lib/nixflix-migration/ready/podman-apprise"
         ];
         serviceConfig = {
-          NetworkNamespacePath = "/run/netns/nixflix-staging";
+          NetworkNamespacePath = lib.mkIf (!production) "/run/netns/nixflix-staging";
           UMask = "0077";
         };
       }

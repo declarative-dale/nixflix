@@ -24,7 +24,7 @@ lib.mkMerge (
         # The existing tunnel terminates HTTPS. No ACME traffic from staged clones.
         tls.enable = false;
       };
-      systemd.services.caddy = {
+      systemd.services.caddy = lib.mkIf (!config.nixflixHost.production.enable) {
         requires = [ "nixflix-staging-network.service" ];
         after = [ "nixflix-staging-network.service" ];
         serviceConfig.NetworkNamespacePath = "/run/netns/nixflix-staging";

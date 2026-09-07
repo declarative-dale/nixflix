@@ -5,6 +5,7 @@
   ...
 }:
 let
+  production = config.nixflixHost.production.enable;
   native = [
     "sonarr"
     "sonarr-4k"
@@ -15,6 +16,12 @@ let
     "sabnzbd"
     "plex"
     "seerr"
+    "bazarr"
+    "bazarr-4k"
+    "tautulli"
+    "audiobookshelf"
+    "readarr"
+    "whisparr"
   ];
   containers = map (n: "podman-${n}") (
     builtins.attrNames config.virtualisation.oci-containers.containers
@@ -116,9 +123,11 @@ in
     };
     serviceConfig = {
       Slice = "nixflix-staging.slice";
-      ReadWritePaths = lib.mkIf (name == "sabnzbd") (lib.mkForce [ "/var/lib/sabnzbd" ]);
+      ReadWritePaths = lib.mkIf (name == "sabnzbd") (
+        lib.mkForce ([ "/var/lib/sabnzbd" ] ++ lib.optional production "/data/usenet")
+      );
     }
-    // lib.optionalAttrs (lib.elem name native) {
+    // lib.optionalAttrs (lib.elem name native && !production) {
       NetworkNamespacePath = "/run/netns/nixflix-staging";
       ReadOnlyPaths = [ "/data" ];
     };
@@ -128,7 +137,7 @@ in
   })
   // lib.genAttrs [ "recyclarr" "recyclarr-cleanup-profiles" ] (_: {
     wantedBy = lib.mkOverride 40 [ ];
-    serviceConfig.NetworkNamespacePath = "/run/netns/nixflix-staging";
+    serviceConfig.NetworkNamespacePath = lib.mkIf (!production) "/run/netns/nixflix-staging";
   });
   systemd.slices.nixflix-staging.sliceConfig = {
     # 16 GiB VM: leave room for the OS and target-side Nix builds.

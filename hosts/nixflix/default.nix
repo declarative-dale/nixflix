@@ -1,9 +1,16 @@
-{ pkgs, modulesPath, ... }:
+{
+  config,
+  pkgs,
+  modulesPath,
+  ...
+}:
 {
   imports = [
     ./hardware-configuration.nix
     ./services.nix
+    ./native-media.nix
     ./staging.nix
+    ./production.nix
     ./gpu.nix
     ./notifications.nix
     ./proxy.nix
@@ -102,7 +109,7 @@
     options = [
       "credentials=/var/lib/nixflix-secrets/current/smb"
       "vers=3.0"
-      "ro"
+      (if config.nixflixHost.production.enable then "rw" else "ro")
       "uid=0"
       "gid=169"
       "file_mode=0664"

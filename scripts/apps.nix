@@ -35,6 +35,8 @@ in
     pkgs.openssh
   ];
   snapshot = script "snapshot" [ ];
+  cutover-source = script "cutover-source" [ pkgs.openssh ];
+  migrate-native = script "migrate-native" [ pkgs.systemd ];
   restore = script "restore" [ pkgs.systemd ];
   reassign-profiles = script "reassign-profiles" [ ];
   validate-state = script "validate-state" [ ];
