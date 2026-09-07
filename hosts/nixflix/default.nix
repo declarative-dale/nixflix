@@ -111,10 +111,14 @@
     ];
   };
   systemd.tmpfiles.rules = [
-    "d /data 0000 root root -"
     "d /var/lib/nixflix-migration 0700 root root -"
     "d /var/lib/nixflix-secrets 0700 root root -"
   ];
+  system.activationScripts.nixflix-mountpoint.text = ''
+    if ! ${pkgs.util-linux}/bin/mountpoint -q /data; then
+      ${pkgs.coreutils}/bin/install -d -m 0000 -o root -g root /data
+    fi
+  '';
   # No credential values enter the store. The SMB client reads the persistent file.
   systemd.services.nixflix-nas-ready = {
     requires = [ "data.mount" ];

@@ -118,7 +118,7 @@ def main():
             path = Path(directory) / file
             if not path.is_symlink():
                 os.chown(path, owner.pw_uid, owner.pw_gid)
-                os.chmod(path, 0o600)
+                os.chmod(path, 0o700 if path.stat().st_mode & 0o111 else 0o600)
     # Service prestarts may need to recreate these omitted cache directories.
     if name == "stash":
         for part in ("cache", "generated", "metadata", "config"):
