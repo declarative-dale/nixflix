@@ -173,6 +173,7 @@
               ]))
               pkgs.sqlite
               pkgs.curl
+              pkgs.dnsutils
               pkgs.just
               pkgs.shellcheck
               pkgs.pass

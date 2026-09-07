@@ -1,6 +1,7 @@
 { pkgs, host }:
 let
   cfg = host.config;
+  localServices = builtins.fromJSON (builtins.readFile ../../hosts/nixflix/local-services.json);
   native = [
     "sonarr"
     "sonarr-4k"
@@ -22,6 +23,13 @@ in
 assert cfg.nixflixHost.production.enable;
 assert builtins.elem "rw" cfg.fileSystems."/data".options;
 assert cfg.networking.firewall.allowedTCPPorts == [ 22 ];
+assert builtins.all (
+  name:
+  pkgs.lib.hasInfix "reverse_proxy http://127.0.0.1:${
+    toString localServices.services.${name}
+  }" cfg.services.caddy.virtualHosts."http://${name}.${localServices.domain}".extraConfig
+) (builtins.attrNames localServices.services);
+assert !(builtins.elem "plex.vm.internal" (cfg.networking.hosts."127.0.0.1" or [ ]));
 assert pkgs.lib.hasInfix "-s 10.42.0.0/24 -p tcp --dport 32400 -j nixos-fw-accept"
   cfg.networking.firewall.extraCommands;
 assert cfg.virtualisation.oci-containers.backend == "podman";

@@ -7,6 +7,7 @@
 }:
 let
   production = config.nixflixHost.production.enable;
+  localServices = builtins.fromJSON (builtins.readFile ./local-services.json);
   bindAddress = if production then "0.0.0.0" else "127.0.0.1";
   secret = name: { _secret = "/var/lib/nixflix-secrets/current/${name}"; };
   arr = name: port: {
@@ -163,7 +164,7 @@ in
     User = "seerr";
     Group = "media";
   };
-  # Keep SABnzbd's copied provider, path and queue settings. Update only the bind address.
+  # Preserve copied providers, paths and queues while managing access and categories.
   systemd.services.sabnzbd.serviceConfig.ExecStartPre = lib.mkForce (
     "+"
     + pkgs.writeShellScript "sabnzbd-migration-prestart" ''
@@ -174,6 +175,13 @@ in
       c = ConfigObj('/var/lib/sabnzbd/sabnzbd.ini')
       c['misc']['host'] = '${bindAddress}'
       c['misc']['port'] = '8080'
+      allowed = c['misc'].get('host_whitelist', [])
+      if isinstance(allowed, str):
+          allowed = [value.strip() for value in allowed.split(',') if value.strip()]
+      for hostname in ('sabnzbd', 'sabnzbd.${localServices.domain}'):
+          if hostname not in allowed:
+              allowed.append(hostname)
+      c['misc']['host_whitelist'] = allowed
       c['misc']['api_key'] = open('/var/lib/nixflix-secrets/current/sabnzbd').read().strip()
       if 'categories' not in c:
           c['categories'] = {}

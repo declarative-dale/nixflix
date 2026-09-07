@@ -4,6 +4,48 @@ The personal fork `declarative-dale/nixflix` manages `marty@10.69.0.18`.
 `kiriwalawren/nixflix` is an upstream remote. A push never deploys the VM.
 The host uses locked NixOS 26.05; the project's original unstable input is retained.
 
+## Local service addresses and router DNS
+
+Use `http://plex.vm.internal/web/`, `http://seerr.vm.internal/`,
+`http://sonarr.vm.internal/` or the other service names in
+`hosts/nixflix/local-services.json`. Every name resolves to `10.69.0.18`;
+Caddy selects the application port from the HTTP hostname. The manifest supplies
+both the Caddy routes and router DNS overrides. These internal URLs use HTTP.
+
+OPNsense Unbound serves DNS on `10.69.0.1` for the VM subnet and `10.42.0.1`
+for the client LAN. Its existing dnsmasq DHCP integration remains intact, including
+the `vm.internal` VM search domain and `lan.internal` client search domain.
+Use full names from either subnet. Nixflix already receives `10.69.0.1` through
+DHCP; no local loopback hosts entry replaces router resolution. Clients using a
+public or browser-specific DNS resolver must use the router for this private zone.
+
+From the workstation, authenticate to the router using SSH, then manage records:
+
+```sh
+nix run .#router-dns -- plan
+nix run .#router-dns -- apply
+nix develop -c dig @10.69.0.1 plex.vm.internal A
+nix develop -c dig @10.42.0.1 plex.vm.internal A
+```
+
+The app defaults to `root@10.42.0.1`, requires an authenticated SSH session or
+key, and accepts `--control-path PATH` for an existing multiplexed session.
+It stores no router password. Plan validates OPNsense's native Unbound model
+without saving. Apply saves a root-only backup under `/conf/nixflix-dns-backups/`
+on the router, records a native configuration revision, then regenerates/restarts
+Unbound. Repeated apply with unchanged records does not save or restart anything.
+Backups contain router secrets and must stay protected. Existing unrelated DNS
+records are preserved; conflicting unowned overrides or aliases cause failure.
+
+For a new service, edit the manifest, run repository checks, commit/push with
+`jj`, then test-deploy Caddy and verify the route before applying DNS. Finish with
+the normal switch command. Neither a push nor a NixOS deployment automatically
+changes router DNS. `nix run .#router-dns -- remove` removes only the current
+manifest's marked nixflix overrides; run it with the old manifest before retiring
+names, then apply the revised manifest. System rollback does not roll back router
+DNS. SABnzbd's managed startup adds its internal hostname to its allowlist while
+preserving existing entries.
+
 ## Production cutover, September 7
 
 The user selected the existing September 7 snapshot for production; a newer

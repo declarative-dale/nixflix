@@ -1,5 +1,6 @@
 { config, lib, ... }:
 let
+  local = builtins.fromJSON (builtins.readFile ./local-services.json);
   proxy = import ../../lib/mkVirtualHosts.nix { inherit config lib; };
   # Existing request hostname is preserved. These additional names are local
   # routes only until LAN DNS / existing tunnel upstreams are changed at cutover.
@@ -24,6 +25,28 @@ lib.mkMerge (
         # The existing tunnel terminates HTTPS. No ACME traffic from staged clones.
         tls.enable = false;
       };
+      # Router Unbound records and these routes share one service manifest.
+      # Plain HTTP is deliberate for the internal zone; no public ACME requests.
+      services.caddy.virtualHosts = lib.listToAttrs (
+        lib.concatLists (
+          lib.mapAttrsToList (
+            name: port:
+            map
+              (
+                hostname:
+                lib.nameValuePair "http://${hostname}" {
+                  extraConfig = ''
+                    reverse_proxy http://127.0.0.1:${toString port}
+                  '';
+                }
+              )
+              [
+                "${name}.${local.domain}"
+                name
+              ]
+          ) local.services
+        )
+      );
       systemd.services.caddy = lib.mkIf (!config.nixflixHost.production.enable) {
         requires = [ "nixflix-staging-network.service" ];
         after = [ "nixflix-staging-network.service" ];
