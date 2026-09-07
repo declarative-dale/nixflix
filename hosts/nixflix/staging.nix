@@ -86,7 +86,9 @@ in
         RemainAfterExit = true;
       };
       script = ''
-        ip netns list | grep -q '^nixflix-staging ' || ip netns add nixflix-staging
+        if [ ! -e /run/netns/nixflix-staging ]; then
+          ip netns add nixflix-staging
+        fi
         ip -n nixflix-staging link set lo up
       '';
     };
