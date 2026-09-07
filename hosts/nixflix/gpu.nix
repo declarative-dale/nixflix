@@ -31,10 +31,15 @@
     virtualisation.oci-containers.containers.stash.environment =
       lib.mkIf config.nixflixHost.gpuPassthrough.enable
         {
-          STASH_FFMPEG_PATH = "${pkgs.ffmpeg}/bin/ffmpeg";
-          STASH_FFPROBE_PATH = "${pkgs.ffmpeg}/bin/ffprobe";
           LIBVA_DRIVER_NAME = "iHD";
           LIBVA_DRIVERS_PATH = "/run/opengl-driver/lib/dri";
         };
+    systemd.services.podman-stash.preStart = lib.mkIf config.nixflixHost.gpuPassthrough.enable (
+      lib.mkBefore ''
+        ${pkgs.python3.withPackages (p: [ p.pyyaml ])}/bin/python3 ${../../scripts/configure-stash-gpu.py} \
+          /var/lib/nixflix-containers/stash/config/config.yml \
+          ${pkgs.ffmpeg}/bin/ffmpeg ${pkgs.ffmpeg}/bin/ffprobe
+      ''
+    );
   };
 }
