@@ -4,6 +4,71 @@ The personal fork `declarative-dale/nixflix` manages `marty@10.69.0.18`.
 `kiriwalawren/nixflix` is an upstream remote. A push never deploys the VM.
 The host uses locked NixOS 26.05; the project's original unstable input is retained.
 
+## Production cutover, September 7
+
+The user selected the existing September 7 snapshot for production; a newer
+snapshot was not taken. `nixosConfigurations.nixflix` now enables production LAN
+networking and a writable NAS. `nixflix-staging` retains the isolated configuration
+for future preparation. The historical staging observations below apply to that
+mode. The internal target/slice names remain `nixflix-staging` in both modes.
+
+Fifteen media instances run natively: Plex, Seerr, Prowlarr, SABnzbd, Lidarr,
+HD/4K Sonarr, HD/4K Radarr, HD/4K Bazarr, Tautulli, Audiobookshelf, Readarr and
+Whisparr. The second Bazarr uses the native package with a separate systemd unit.
+Stash stays on its tested Podman image because the pinned NixOS package is older
+than the restored version (0.29.1 versus 0.29.3). Mylar3 also stays on Podman.
+Quadlet conversion is a later step for remaining containers. Apprise is prepared
+on Podman, disabled until its Discord and Matrix credentials are provided.
+
+Native state lives at `/var/lib/NAME`; Audiobookshelf has `config` and `metadata`
+subdirectories and service-specific mappings for its old absolute paths. Original
+staged container state remains under `/var/lib/nixflix-containers` for rollback.
+`nix run .#migrate-native` copies inactive staged state without deleting it.
+`nix run .#restore -- SNAPSHOT SERVICE` now restores these services natively.
+
+All media ports retain their previous numbers at `10.69.0.18`. Firewall rules
+allow them only from `10.69.0.0/24`, preserving the global IPv6 firewall boundary.
+Apprise is published only on `127.0.0.1:8000`, with no public proxy route. Plex
+still sees `/media`, and Stash's media bind remains read-only. Arr, SAB and Bazarr
+can write using the shared media group. The NAS readiness service creates the five
+managed download category directories only after confirming the real CIFS mount.
+
+The existing Ubuntu Cloudflare tunnel remains running. A temporary
+`nixflix-seerr-relay` container on its `arrproxy` network forwards the old
+`overseerr:5055` origin to `.18:5055`. It uses Node from the exact already-installed
+Overseerr image, no application state, a read-only filesystem and no capabilities.
+`nix run .#route-seerr` manages its initial creation from the workstation.
+`https://seeme.dalebox.pw` remains the request address. Later change that tunnel's
+origin directly to `http://10.69.0.18:5055` and retire only the relay. Other Ubuntu
+infrastructure and tunnel routes remain in place. Retired Notifiarr and Wizarr
+origins no longer have running applications and can be removed in Cloudflare.
+
+Twenty source media/retired containers were stopped, with Docker restart policies
+set to `no`. Their original policies are recorded on Ubuntu in
+`/var/lib/nixflix-migration/final-20260907-cutover/source-containers.json`.
+That directory contains the freeze record only, **not a completed new snapshot**.
+Never restart source Plex or download writers while the target is active.
+
+To roll back application operation, first stop the target recovery timer and all
+media units (stopping the target alone does not stop its Wanted services). Preserve
+any new target state and downloads for reconciliation. Stop/remove the Ubuntu
+relay, reconnect stopped `overseerr` to `arrproxy` with its original alias, then
+restore source restart policies from the saved record and start the selected
+source containers. System generation rollback alone does not revert databases.
+
+Pass remains the SecretSpec provider on NixOS; OpenBao is not required for this
+single-host setup. Provisioning resolves pass entries and services use persistent,
+root-owned credential files, without an unlocked GPG session at boot. Existing
+provider settings are preserved in protected application state. Expired indexer
+subscriptions require account renewal, separate from host migration.
+
+Run `sudo nix run .#verify-production -- --output
+/var/lib/nixflix-migration/verification-production.json` on `.18` to check all
+17 active media interfaces, private credentials, NAS write probes and Plex Pass.
+The write probes create and immediately remove empty files in download categories;
+they do not move or rename media. Run this again after reboot. The isolation test
+now rejects production mode and includes the added native services.
+
 ## Repository workflow
 
 ```sh

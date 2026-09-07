@@ -38,6 +38,10 @@ in
   cutover-source = script "cutover-source" [ pkgs.openssh ];
   migrate-native = script "migrate-native" [ pkgs.systemd ];
   route-seerr = script "route-seerr" [ pkgs.openssh ];
+  verify-production = script "verify-production" [
+    pkgs.systemd
+    pkgs.util-linux
+  ];
   restore = script "restore" [ pkgs.systemd ];
   reassign-profiles = script "reassign-profiles" [ ];
   validate-state = script "validate-state" [ ];

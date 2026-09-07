@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Rewire copied integrations inside the staging namespace; never submit searches."""
+"""Rewire copied integrations on nixflix; never submit searches.
+
+Use the staging namespace before cutover, or the host namespace in production.
+"""
 
 import json
 import argparse
@@ -52,6 +55,10 @@ def main():
             continue
         fields["baseUrl"]["value"] = f"http://127.0.0.1:{port}"
         fields["prowlarrUrl"]["value"] = "http://127.0.0.1:9696"
+        destination = next(
+            name for name, values in INSTANCES.items() if values[0] == port
+        )
+        fields["apiKey"]["value"] = secret(destination)
         api(
             9696,
             prowlarr_key,

@@ -19,16 +19,16 @@ NATIVE = {
     "sabnzbd",
     "plex",
     "seerr",
-}
-CONTAINERS = {
     "bazarr",
     "bazarr-4k",
     "whisparr",
     "readarr",
-    "mylar3",
-    "notifiarr",
     "tautulli",
     "audiobookshelf",
+}
+CONTAINERS = {
+    "mylar3",
+    "notifiarr",
     "audiobookshelf-metadata",
     "stash",
 }
@@ -45,6 +45,10 @@ def main():
     if not manifest.get("completed") or a.service not in manifest["services"]:
         p.error("snapshot is incomplete")
     name = a.service
+    if name == "audiobookshelf-metadata":
+        p.error(
+            "restore audiobookshelf; its metadata is now restored together with its native config"
+        )
     unit = name if name in NATIVE else "podman-" + name
     if subprocess.run(["systemctl", "is-active", "--quiet", unit]).returncode == 0:
         p.error("stop the target service before restoring")
@@ -61,7 +65,15 @@ def main():
     if target.exists() and any(target.iterdir()):
         p.error("target is nonempty; preserve it before restoring")
     os.umask(0o077)
-    shutil.copytree(a.snapshot / name, target, dirs_exist_ok=True)
+    if name == "audiobookshelf":
+        shutil.copytree(a.snapshot / name, target / "config", dirs_exist_ok=True)
+        shutil.copytree(
+            a.snapshot / "audiobookshelf-metadata",
+            target / "metadata",
+            dirs_exist_ok=True,
+        )
+    else:
+        shutil.copytree(a.snapshot / name, target, dirs_exist_ok=True)
     if name in ("bazarr", "bazarr-4k"):
         import yaml
 
