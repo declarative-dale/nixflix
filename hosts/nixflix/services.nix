@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  inputs,
+  ...
+}:
 let
   secret = name: { _secret = "/var/lib/nixflix-secrets/current/${name}"; };
   arr = name: port: {

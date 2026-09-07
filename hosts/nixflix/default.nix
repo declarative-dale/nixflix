@@ -25,7 +25,10 @@
     git
     rsync
     sqlite
-    python3
+    (python3.withPackages (p: [
+      p.configobj
+      p.pyyaml
+    ]))
     curl
     jq
     pass

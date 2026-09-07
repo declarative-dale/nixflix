@@ -156,7 +156,10 @@
               pkgs.openssh
               pkgs.rsync
               pkgs.jq
-              pkgs.python3
+              (pkgs.python3.withPackages (p: [
+                p.configobj
+                p.pyyaml
+              ]))
               pkgs.sqlite
               pkgs.curl
               pkgs.just
