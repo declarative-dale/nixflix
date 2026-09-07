@@ -27,6 +27,12 @@ private CA keys stay on the router. The CA and certificate renewal state under
 `/var/db/caddy` must be backed up securely. Public certificates for `dalebox.pw`
 use Let's Encrypt and do not need this private root installed.
 
+A public copy is available on `.18` at `/var/lib/nixflix-public/caddy-root.crt`.
+Its SHA-256 fingerprint is
+`75:8D:EA:6E:F2:81:94:ED:F2:06:60:A5:2B:FD:47:70:1F:1D:BF:66:91:5C:0E:6A:1B:72:63:DD:FE:DF:8F:51`.
+Copy it with `scp marty@10.69.0.18:/var/lib/nixflix-public/caddy-root.crt .`
+and import it as a trusted certificate authority on each client.
+
 Only the `publicServices` allowlist receives public-domain routes. `publicNames`
 maps Seerr to its existing `seeme` hostname. The selected public URLs are:
 
@@ -61,6 +67,11 @@ to the WAN address, with Cloudflare proxying disabled. The previous Seerr tunnel
 DNS record is backed up before changing it; its Ubuntu relay can remain for
 rollback until direct WAN ingress has been verified.
 
+Caddy checks the WAN interface IPv4 address every five minutes and updates only
+the eight existing allowed DNS records, with TTL 120 seconds. It does not manage
+wildcard DNS, IPv6 records or unrelated domains. On initial setup, publish the
+explicit records with `public-dns` before relying on this update-only behavior.
+
 Plex additionally has a dedicated **WAN TCP 32400 → 10.69.0.18:32400** forward,
 as requested for native Plex remote access and library sharing. This is separate
 from the public website's port 443. The VM allows inbound IPv4 TCP 32400; other
@@ -69,6 +80,16 @@ Plex is configured with manual public port 32400 and advertises
 `https://plex.dalebox.pw:443` as an additional custom access URL. Do not replace
 Plex's native certificate or server identity. See
 [Plex's remote-access guidance](https://support.plex.tv/articles/200289506-remote-access/).
+
+September 7 verification: all 18 internal HTTPS names passed certificate and
+application-response checks, including both Seerr aliases. All eight public names
+passed public certificate validation; the five guarded dashboards returned 401
+without the router credential and 200 with it. A request to the internal Stash
+route from the router's non-LAN WAN address returned 403. Plex reported
+`mappingState=mapped`, an empty `mappingError`, and public port 32400. These checks
+do not constitute an external user's playback test. The independent web probe
+service rejected the diagnostic request, so a separate WAN HTTP probe was not
+available from this workstation on the LAN.
 
 ### Managed router commands
 
@@ -142,7 +163,8 @@ staged container state remains under `/var/lib/nixflix-containers` for rollback.
 
 All media ports retain their previous numbers at `10.69.0.18`. Firewall rules
 allow them from the server LAN `10.69.0.0/24` and the routed client LAN
-`10.42.0.0/24`, preserving the global IPv6 firewall boundary.
+`10.42.0.0/24`, with the explicit IPv4 TCP 32400 Plex remote-access exception
+described above, preserving the global IPv6 firewall boundary.
 Apprise is published only on `127.0.0.1:8000`, with no public proxy route. Plex
 still sees `/media`, and Stash's media bind remains read-only. Arr, SAB and Bazarr
 can write using the shared media group. The NAS readiness service creates the five
@@ -153,8 +175,9 @@ The existing Ubuntu Cloudflare tunnel remains running. A temporary
 `overseerr:5055` origin to `.18:5055`. It uses Node from the exact already-installed
 Overseerr image, no application state, a read-only filesystem and no capabilities.
 `nix run .#route-seerr` manages its initial creation from the workstation.
-`https://seeme.dalebox.pw` remains the request address. Later change that tunnel's
-origin directly to `http://10.69.0.18:5055` and retire only the relay. Other Ubuntu
+`https://seeme.dalebox.pw` remains the request address, now using direct WAN HTTPS
+through router Caddy. Its former tunnel DNS record is backed up. Keep the relay
+for rollback until remote access is confirmed, then retire only the relay. Other Ubuntu
 infrastructure and tunnel routes remain in place. Retired Notifiarr and Wizarr
 origins no longer have running applications and can be removed in Cloudflare.
 

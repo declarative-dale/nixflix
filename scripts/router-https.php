@@ -28,7 +28,8 @@ function managed($array, $description, $values, $uniqueField = null) {
     $values['description'] = $description;
     $different = $match === null;
     if ($match !== null) foreach ($values as $key => $value) {
-        $different = $different || (string)$match->{$key} !== $value;
+        // UpdateOnlyTextField deliberately renders as blank; compare stored data.
+        $different = $different || $match->{$key}->getValue() !== $value;
     }
     if ($different) {
         $match ??= $array->Add();
@@ -52,7 +53,9 @@ try {
     }
     $general = ['TlsDnsProvider'=>'cloudflare',
                 'TlsDnsPropagationResolvers'=>'1.1.1.1',
-                'TlsAutoHttps'=>'', 'HttpVersions'=>'h1,h2', 'DisableSuperuser'=>'0'];
+                'TlsAutoHttps'=>'', 'HttpVersions'=>'h1,h2', 'DisableSuperuser'=>'0',
+                'DynDnsInterface'=>'wan', 'DynDnsIpVersions'=>'ipv4',
+                'DynDnsInterval'=>'300', 'DynDnsTtl'=>'120', 'DynDnsUpdateOnly'=>'1'];
     if ($action === 'apply') {
         if (!preg_match('/^[A-Za-z0-9_-]{20,}$/', $input['dns_token'] ?? '')) {
             throw new RuntimeException('Missing or malformed DNS token');
@@ -82,7 +85,7 @@ try {
     if ($action === 'apply') {
         $password = $input['web_password'] ?? '';
         if (strlen($password) < 24) throw new RuntimeException('Missing public dashboard credential');
-        $hash = $auth !== null ? (string)$auth->basicauthpass : '';
+        $hash = $auth !== null ? $auth->basicauthpass->getValue() : '';
         if (!password_verify($password, $hash)) $hash = password_hash($password, PASSWORD_BCRYPT);
         $authId = managed($model->reverseproxy->basicauth, 'nixflix managed public dashboard login', [
             'basicauthuser'=>'nixflix', 'basicauthpass'=>$hash,
@@ -115,7 +118,7 @@ try {
         if (!in_array($name, $manifest['publicServices'], true)) continue;
         $subdomain = managed($model->reverseproxy->subdomain, 'nixflix managed public name: ' . $name, [
             'enabled'=>'1', 'reverse'=>$wildcard,
-            'FromDomain'=>($manifest['publicNames'][$name] ?? $name) . '.dalebox.pw', 'DynDns'=>'0',
+            'FromDomain'=>($manifest['publicNames'][$name] ?? $name) . '.dalebox.pw', 'DynDns'=>'1',
             'basicauth'=>in_array($name, $manifest['publicAuthServices'], true) ? $authId : '',
         ], 'FromDomain');
         managed($model->reverseproxy->handle, 'nixflix managed public upstream: ' . $name, [
