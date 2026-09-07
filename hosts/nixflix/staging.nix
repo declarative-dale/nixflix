@@ -101,7 +101,7 @@ in
     enable = lib.mkForce false;
   })
   // lib.genAttrs [ "recyclarr" "recyclarr-cleanup-profiles" ] (_: {
-    wantedBy = lib.mkForce [ ];
+    wantedBy = lib.mkOverride 40 [ ];
     serviceConfig.NetworkNamespacePath = "/run/netns/nixflix-staging";
   });
   systemd.slices.nixflix-staging.sliceConfig = {
