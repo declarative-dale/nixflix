@@ -74,7 +74,10 @@ explicit records with `public-dns` before relying on this update-only behavior.
 
 Plex additionally has a dedicated **WAN TCP 32400 → 10.69.0.18:32400** forward,
 as requested for native Plex remote access and library sharing. This is separate
-from the public website's port 443. The VM allows inbound IPv4 TCP 32400; other
+from the public website's port 443. The ingress app reserves `10.69.0.18` in router
+Dnsmasq for the VM adapter `66:f3:5d:b3:84:5a`, preserving its DHCP networking.
+Update the manifest's `macAddress` if the hypervisor replaces that adapter.
+The VM allows inbound IPv4 TCP 32400; other
 application ports remain LAN-restricted and the global IPv6 firewall stays closed.
 Plex is configured with manual public port 32400 and advertises
 `https://plex.dalebox.pw:443` as an additional custom access URL. Do not replace

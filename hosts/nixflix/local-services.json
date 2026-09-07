@@ -1,6 +1,7 @@
 {
   "domain": "vm.internal",
   "address": "10.69.0.18",
+  "macAddress": "66:f3:5d:b3:84:5a",
   "routerAddress": "10.69.0.1",
   "publicNames": { "seerr": "seeme" },
   "publicAuthServices": ["prowlarr", "readarr", "mylar3", "lidarr", "tautulli"],
