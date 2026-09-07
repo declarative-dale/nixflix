@@ -62,6 +62,21 @@ def main():
         )
     for name, (port, _) in INSTANCES.items():
         key = secret(name)
+        # Disabled/failing indexers are not always resynced by Prowlarr. Rewrite
+        # their stored origin too, retaining provider paths, IDs and enable flags.
+        for indexer in api(port, key, "GET", "indexer"):
+            changed = False
+            for field in indexer.get("fields", []):
+                if field["name"] != "baseUrl":
+                    continue
+                url = urlsplit(str(field.get("value", "")))
+                if url.hostname in ("prowlarr", "10.69.0.12") and url.port == 9696:
+                    field["value"] = url._replace(netloc="127.0.0.1:9696").geturl()
+                    changed = True
+            if changed:
+                api(
+                    port, key, "PUT", f"indexer/{indexer['id']}?forceSave=true", indexer
+                )
         # Preserve connection definitions, but do not revive retired webhook/bot
         # destinations while the user provisions Discord and Matrix.
         for notification in api(port, key, "GET", "notification"):
