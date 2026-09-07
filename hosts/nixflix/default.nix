@@ -51,10 +51,6 @@
     openssh.authorizedKeys.keyFiles = [ ./administrator.pub ];
   };
   # marty key authentication and sudo were verified in a separate SSH session.
-  users.users.nixos = {
-    isNormalUser = true;
-    hashedPassword = "!";
-  };
   security.sudo.extraRules = [
     {
       users = [ "marty" ];

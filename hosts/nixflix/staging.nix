@@ -51,6 +51,15 @@ let
     ];
 in
 {
+  systemd.targets.nixflix-staging = {
+    description = "Validated, isolated media staging services";
+    wantedBy = [ "multi-user.target" ];
+    wants = map (name: "${name}.service") (native ++ containers);
+    after = [
+      "nixflix-staging-network.service"
+      "nixflix-nas-ready.service"
+    ];
+  };
   systemd.services = {
     nixflix-staging-network = {
       description = "Loopback-only namespace for cloned media identities";

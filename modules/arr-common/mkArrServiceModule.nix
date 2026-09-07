@@ -336,7 +336,10 @@ in
           ExecStart =
             if apiKeyIsSecretRef then
               pkgs.writeShellScript "${serviceName}-start" ''
-                export ${apiKeyEnvVar}="$(cat ${credentialPath})"
+                set -euo pipefail
+                api_key="$(cat ${credentialPath})"
+                test -n "$api_key"
+                export ${apiKeyEnvVar}="$api_key"
                 exec ${getExe cfg.package} -nobrowser -data='${cfg.dataDir}'
               ''
             else
@@ -347,6 +350,7 @@ in
         }
         // optionalAttrs apiKeyIsSecretRef {
           LoadCredential = [ "apiKey:${toString cfg.config.apiKey._secret}" ];
+          ExecStartPre = "${pkgs.coreutils}/bin/test -s ${credentialPath}";
         };
       };
     }

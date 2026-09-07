@@ -18,6 +18,8 @@ INSTANCES = {
 
 
 def api(port, key, method, path, value=None, version="v3"):
+    if port == 8686:
+        version = "v1"
     req = Request(
         f"http://127.0.0.1:{port}/api/{version}/{path}",
         headers={"X-Api-Key": key, "Content-Type": "application/json"},

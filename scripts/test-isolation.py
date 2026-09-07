@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Exercise missing-credential and missing-NAS behavior on the staging VM only."""
+
+from pathlib import Path
+import os
+import subprocess
+
+NATIVE = [
+    "sonarr",
+    "sonarr-4k",
+    "radarr",
+    "radarr-4k",
+    "lidarr",
+    "prowlarr",
+    "sabnzbd",
+    "plex",
+    "seerr",
+]
+CONTAINERS = [
+    "podman-" + n
+    for n in [
+        "bazarr",
+        "bazarr-4k",
+        "whisparr",
+        "readarr",
+        "mylar3",
+        "notifiarr",
+        "tautulli",
+        "audiobookshelf",
+        "stash",
+    ]
+]
+
+
+def systemctl(*args, check=True):
+    return subprocess.run(
+        ["systemctl", *args],
+        check=check,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def main():
+    if os.geteuid() != 0 or Path("/etc/hostname").read_text().strip() != "nixflix":
+        raise RuntimeError("Run as root on nixflix only")
+    route = subprocess.check_output(["ip", "-n", "nixflix-staging", "route"], text=True)
+    if route.strip():
+        raise RuntimeError("Staging namespace unexpectedly has a route")
+    running = [
+        s
+        for s in NATIVE + CONTAINERS
+        if systemctl("is-active", "--quiet", s, check=False).returncode == 0
+    ]
+    dropin = Path("/run/systemd/system/sonarr.service.d/99-missing-secret-test.conf")
+    if dropin.exists():
+        raise RuntimeError("A previous test drop-in exists; inspect it first")
+    systemctl("stop", "sonarr")
+    try:
+        dropin.parent.mkdir(parents=True, exist_ok=True)
+        dropin.write_text(
+            "[Service]\nLoadCredential=\nLoadCredential=apiKey:/run/nixflix-deliberately-missing\n"
+        )
+        systemctl("daemon-reload")
+        if systemctl("start", "sonarr", check=False).returncode == 0:
+            raise RuntimeError("Sonarr started with a missing credential")
+        print("PASS: missing credential prevents startup", flush=True)
+    finally:
+        dropin.unlink(missing_ok=True)
+        systemctl("daemon-reload")
+        systemctl("reset-failed", "sonarr", check=False)
+    try:
+        systemctl("stop", "data.mount")
+        systemctl("mask", "--runtime", "data.mount")
+        if systemctl("start", "sonarr", check=False).returncode == 0:
+            raise RuntimeError("Sonarr started without the NAS")
+        if any(
+            systemctl("is-active", "--quiet", s, check=False).returncode == 0
+            for s in NATIVE + CONTAINERS
+        ):
+            raise RuntimeError(
+                "A media service survived loss of its required NAS mount"
+            )
+        if list(Path("/data").iterdir()):
+            raise RuntimeError("Unexpected files in the unmounted local directory")
+        if (
+            subprocess.run(
+                ["runuser", "-u", "sonarr", "--", "test", "-w", "/data"]
+            ).returncode
+            == 0
+        ):
+            raise RuntimeError("The service user can write to unmounted /data")
+        print(
+            "PASS: NAS loss stops services and prevents local fallback writes",
+            flush=True,
+        )
+    finally:
+        systemctl("unmask", "--runtime", "data.mount")
+        systemctl("daemon-reload")
+        systemctl("reset-failed", check=False)
+        systemctl("start", "data.mount")
+        if running:
+            systemctl("start", *running)
+    print("Restored the previously running staged services", flush=True)
+
+
+if __name__ == "__main__":
+    main()
