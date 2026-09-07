@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Manage router Unbound records for the repository's Caddy service manifest.
+"""Prepare disabled OPNsense Caddy routes for router-managed public certificates.
 
-Run from the workstation. Uses SSH authentication; no password or API secret is
-stored. Plan validates without saving. Apply backs up router configuration first.
-Remove deletes only this manifest's explicitly marked nixflix host overrides.
+Run on the workstation after installing os-caddy. No credential is accepted or
+printed. A subsequent activation requires a DNS token entered in the router UI.
 """
 
 import argparse
@@ -16,19 +15,13 @@ import subprocess
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["plan", "apply", "remove"])
+    parser.add_argument("action", choices=["plan", "prepare"])
     parser.add_argument("--router", default="root@10.42.0.1")
-    parser.add_argument("--zone", choices=["internal", "public"], default="internal")
-    parser.add_argument(
-        "--control-path", help="Existing authenticated SSH multiplex socket"
-    )
+    parser.add_argument("--control-path")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     manifest = json.loads((root / "hosts/nixflix/local-services.json").read_text())
-    if args.zone == "public":
-        manifest.update(domain="dalebox.pw", address="10.69.0.1")
-    code = (root / "scripts/router-dns.php").read_text().removeprefix("<?php")
-    # PHP code is encoded to pass intact through either csh or a POSIX login shell.
+    code = (root / "scripts/router-https.php").read_text().removeprefix("<?php")
     command = [
         "/usr/local/bin/php",
         "-r",
@@ -37,12 +30,13 @@ def main():
     ssh = ["ssh", "-F", "/dev/null", "-o", "BatchMode=yes"]
     if args.control_path:
         ssh += ["-o", "ControlPath=" + args.control_path]
-    subprocess.run(
+    result = subprocess.run(
         ssh + [args.router, shlex.join(command)],
         input=json.dumps({"action": args.action, "manifest": manifest}),
         text=True,
-        check=True,
+        check=False,
     )
+    raise SystemExit(result.returncode)
 
 
 if __name__ == "__main__":

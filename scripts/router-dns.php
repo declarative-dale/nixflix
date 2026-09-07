@@ -10,8 +10,10 @@ use OPNsense\Unbound\Unbound;
 $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
 $action = $input['action'];
 $manifest = $input['manifest'];
-if (!in_array($action, ['plan', 'apply', 'remove'], true) ||
-    $manifest['domain'] !== 'vm.internal' || $manifest['address'] !== '10.69.0.18') {
+if (!in_array($action, ['plan', 'apply', 'remove'], true) || !in_array(
+    [$manifest['domain'], $manifest['address']],
+    [['vm.internal', '10.69.0.18'], ['dalebox.pw', '10.69.0.1']], true
+)) {
     throw new RuntimeException('Unexpected DNS provisioning target');
 }
 $config = Config::getInstance();

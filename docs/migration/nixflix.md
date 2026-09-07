@@ -6,6 +6,72 @@ The host uses locked NixOS 26.05; the project's original unstable input is retai
 
 ## Local service addresses and router DNS
 
+### Publicly trusted HTTPS: router preparation
+
+The selected HTTPS names are `https://stash.dalebox.pw/`,
+`https://whisparr.dalebox.pw/`, `https://plex.dalebox.pw/web/` and the other
+manifest service names under `dalebox.pw`. **This HTTPS setup is prepared but
+inactive until the Cloudflare DNS token is provisioned and issuance verified.**
+The working `vm.internal` HTTP addresses below remain available.
+
+The router now has `os-caddy` 2.2.1 and its Caddy dependency installed. The native
+GUI configuration contains a `*.dalebox.pw` wildcard using Cloudflare DNS-01,
+17 subdomains and upstream handlers derived from the service manifest. Router
+Caddy will terminate TLS and forward to each application's existing `.18` port.
+Certificates and renewal state stay on the router. Dynamic DNS is disabled;
+certificate validation must not replace the existing public tunnel records.
+The wildcard has an access list for `10.69.0.0/24` and `10.42.0.0/24`.
+
+Custom bind imports under `/usr/local/etc/caddy/caddy.d/nixflix-bind.*` constrain
+HTTP/HTTPS listeners to the router's static `10.69.0.1`. Its administration GUI
+stays on `10.42.0.1:443`. Model validation passed; an offline Caddy adaptation
+with a disposable placeholder token confirmed the intended listeners. Real-token
+certificate validation and end-to-end HTTPS checks are still required.
+
+Prepare from the workstation with an authenticated SSH key or multiplex socket:
+
+```sh
+nix run .#router-https -- plan
+nix run .#router-https -- prepare
+```
+
+Preparation refuses to alter an enabled proxy or unrelated domains, saves a
+root-only router backup in `/conf/nixflix-https-backups/`, preserves credentials,
+and leaves the proxy disabled. Repeated preparation has no changes. It does not
+publish DNS records or start certificate issuance. Custom bind files are managed
+alongside the XML configuration; include both in router backups and rollback.
+
+Create a Cloudflare API token scoped to **only `dalebox.pw`**, with **Zone:Read**
+and **DNS:Edit**, as required by the
+[Caddy Cloudflare provider](https://github.com/caddy-dns/cloudflare#configuration).
+Store it in pass on `.18` from the workstation using an interactive SSH session:
+
+```sh
+ssh -t marty@10.69.0.18 'pass insert secretspec/nixflix/public_tls/CLOUDFLARE_DNS_API_TOKEN'
+```
+
+The SecretSpec `public_tls` profile declares that entry. The remaining activation
+work is to resolve it through pass/SecretSpec and securely provision the router's
+Caddy DNS API field, validate the real generated configuration, enable Caddy,
+and verify the certificate chain and every route with `curl --resolve` before
+publishing local DNS. The router UI field is Services → Caddy Web Server →
+General Settings → DNS Provider. Do not paste the token into chat or the repo.
+
+After HTTPS verification, publish **router-local** overrides (these commands do
+not touch Cloudflare's public DNS records):
+
+```sh
+nix run .#router-dns -- plan --zone public
+nix run .#router-dns -- apply --zone public
+```
+
+This maps the 17 service names under `dalebox.pw` to `10.69.0.1` for clients using
+router DNS. `--zone internal` remains the default and continues to map
+`vm.internal` names to `.18`. Public-zone DNS publication is pending; the HTTPS
+links above are planned addresses, not a claim they currently serve these apps.
+
+### Working internal HTTP addresses
+
 Use `http://plex.vm.internal/web/`, `http://seerr.vm.internal/`,
 `http://sonarr.vm.internal/` or the other service names in
 `hosts/nixflix/local-services.json`. Every name resolves to `10.69.0.18`;

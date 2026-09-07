@@ -39,6 +39,7 @@ in
   migrate-native = script "migrate-native" [ pkgs.systemd ];
   route-seerr = script "route-seerr" [ pkgs.openssh ];
   router-dns = script "router-dns" [ pkgs.openssh ];
+  router-https = script "router-https" [ pkgs.openssh ];
   verify-production = script "verify-production" [
     pkgs.systemd
     pkgs.util-linux

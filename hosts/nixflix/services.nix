@@ -178,7 +178,7 @@ in
       allowed = c['misc'].get('host_whitelist', [])
       if isinstance(allowed, str):
           allowed = [value.strip() for value in allowed.split(',') if value.strip()]
-      for hostname in ('sabnzbd', 'sabnzbd.${localServices.domain}'):
+      for hostname in ('sabnzbd', 'sabnzbd.${localServices.domain}', 'sabnzbd.dalebox.pw'):
           if hostname not in allowed:
               allowed.append(hostname)
       c['misc']['host_whitelist'] = allowed
