@@ -27,7 +27,8 @@ staged container state remains under `/var/lib/nixflix-containers` for rollback.
 `nix run .#restore -- SNAPSHOT SERVICE` now restores these services natively.
 
 All media ports retain their previous numbers at `10.69.0.18`. Firewall rules
-allow them only from `10.69.0.0/24`, preserving the global IPv6 firewall boundary.
+allow them from the server LAN `10.69.0.0/24` and the routed client LAN
+`10.42.0.0/24`, preserving the global IPv6 firewall boundary.
 Apprise is published only on `127.0.0.1:8000`, with no public proxy route. Plex
 still sees `/media`, and Stash's media bind remains read-only. Arr, SAB and Bazarr
 can write using the shared media group. The NAS readiness service creates the five
