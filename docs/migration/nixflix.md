@@ -45,8 +45,9 @@ No media ports are exposed on the LAN. Inspect services through
 
 Services require a real CIFS mount, stop when it disappears, and require a
 root-owned `/var/lib/nixflix-migration/ready/UNIT` marker before they start.
-They are initially manual-start because copied configurations contain live
-production identities and schedules and the VM has only 4 GiB RAM. Do not remove
+Validated restored services start through `nixflix-staging.target` after reboot.
+The readiness markers and namespace remain mandatory because copied configurations
+contain live production identities and schedules and the VM has only 4 GiB RAM. Do not remove
 namespace or read-only protections to work around staging errors. The staging
 slice is limited to 3200 MiB so load testing cannot consume all host memory.
 
@@ -55,7 +56,9 @@ roots, monitored status, history and paths. The reusable modules still integrate
 all four instances with Prowlarr, download clients, SAB categories and Recyclarr.
 Profiles must exist before running `scripts/reassign-profiles.py` inside the
 namespace as root. It updates only qualityProfileId, requests no file moves,
-checks paths/monitored status after all updates, then deletes obsolete profiles.
+checks paths/monitored status after all updates, updates import-list and Radarr
+collection profile references, then deletes obsolete profiles. Individual collection
+updates avoid the bulk endpoint that would enqueue a collection refresh.
 
 | Source | Target | Port | Managed profile |
 | --- | --- | --- | --- |
@@ -108,3 +111,78 @@ routing changes. Do not bulk-search, rename, move media, or enable library-wide
 upgrades. Assess concurrent memory pressure first. GPU passthrough and its
 hypervisor configuration remain separate work; validate Intel VA-API and Plex /
 Stash hardware transcoding only after a render device is present.
+
+## Verified preparation, 2026-09-07
+
+The root partition now starts at the original sector 2101248 and has size
+260042719 sectors. ext4 reports 122 GiB. Filesystem UUIDs, EFI, NetworkManager,
+stateVersion and the existing `xen-guest-agent` service were retained. Partition
+backups and the original `/etc/nixos` configuration are in
+`/var/lib/nixflix-migration/bootstrap` on .18.
+
+The source and target each hold `snapshot-2026-09-07` (approximately 16 GiB).
+Plex's library and blobs databases use dated 2026-09-07 backups. All state is on
+local ext4; the NAS supplies only read-only media during staging. The live Ubuntu
+services were not stopped. drbrown has the explicitly approved passwordless sudo
+rule `/etc/sudoers.d/nixflix-migration`. marty is the target administrator; the
+nixos account was removed after a separate key-authenticated sudo session passed.
+
+Verified restored Arr counts, paths, monitored flags and history:
+
+| Instance | Titles / artists | History rows |
+| --- | ---: | ---: |
+| Sonarr HD | 195 | 21435 |
+| Sonarr 4K | 70 | 7801 |
+| Radarr HD | 402 | 833 |
+| Radarr 4K | 166 | 411 |
+| Lidarr | 4 | 489 |
+
+All four managed profiles were synced from the locked TRaSH resources, titles and
+remaining profile references reassigned, and obsolete profiles removed. Prowlarr
+applications and Arr SAB clients point to the local isolated endpoints. SAB retains
+copied settings and queue state, adding the four managed categories plus Lidarr.
+Seerr retains 4 users, 662 media records and 354 requests, with all four destinations
+pointing at the new profile IDs. Its database and Audiobookshelf's database passed
+SQLite quick_check. Plex retained its machine identifiers and token, and returned
+five authenticated library sections using the original `/media` paths. Its cloud
+subscription endpoint is inaccessible in isolation; live entitlement and hardware
+transcoding validation remain for cutover/GPU work.
+
+All 18 HTTP ports responded during staging (Plex requires authentication).
+Concurrent startup and library/API checks used about 2.7 GiB in the staging slice;
+its memory-high threshold was reached, with zero OOM kills observed. This is limited
+headroom for heavy scans or transcoding: the current 4 GiB allocation should not be
+considered production capacity validation. Hypervisor assignments were unchanged.
+
+`test-isolation.py` verified missing API credentials prevent startup and NAS loss
+stops all media units without local fallback writes, then restored the services.
+Repeated SecretSpec provisioning kept the same generation. The reusable Arr helper
+now explicitly checks credentials before starting, fixing a fallback-to-empty-key
+behavior found by this test. Recyclarr state/configuration permissions are 0700/0600.
+
+Useful operations on .18:
+
+```sh
+sudo systemctl status nixflix-staging.target
+sudo ip netns exec nixflix-staging curl http://127.0.0.1:5055/api/v1/status
+sudo python3 scripts/validate-state.py /var/lib/nixflix-migration/snapshot-2026-09-07
+# Temporarily interrupts ONLY staged services and restores them:
+sudo python3 scripts/test-isolation.py
+```
+
+To inspect a staged UI from the workstation without allowing outbound traffic,
+run a localhost-only relay on .18, then an SSH tunnel from the workstation:
+
+```sh
+# On .18, for Seerr:
+sudo socat TCP-LISTEN:15055,bind=127.0.0.1,reuseaddr,fork EXEC:'ip netns exec nixflix-staging socat STDIO TCP:127.0.0.1:5055'
+# On the workstation, in another terminal:
+ssh -F /dev/null -L 15055:127.0.0.1:15055 marty@10.69.0.18
+```
+
+Browse `http://localhost:15055`; stop the relay when finished. Plex cloud sign-in
+and external notifications/downloads are intentionally unavailable in isolation.
+For later GPU validation set `nixflixHost.gpuPassthrough.enable = true` only after
+passthrough exists, then test VA-API and real Plex/Stash transcoding. Production
+cutover still requires a final consistent transfer, tested cloud authentication,
+provider credentials, deliberate routing changes, and a memory/concurrency decision.

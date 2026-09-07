@@ -77,6 +77,49 @@ class ProfileMigration(unittest.TestCase):
             self.assertEqual(("DELETE", "qualityprofile/1", None), calls[-1])
         self.assertFalse(any("command" in path for _, path, _ in calls))
 
+    def test_import_list_and_collection_references(self):
+        lists = [{"id": 10, "qualityProfileId": 1, "enableAutomaticAdd": False}]
+        collections = [
+            {
+                "id": 20,
+                "qualityProfileId": 1,
+                "monitored": True,
+                "rootFolderPath": "/data/movies",
+            }
+        ]
+        deleted = []
+
+        def call(method, path, payload=None):
+            if method == "GET":
+                return copy.deepcopy(
+                    {
+                        "qualityprofile": [
+                            {"id": 1, "name": "old"},
+                            {"id": 2, "name": "desired"},
+                        ],
+                        "movie": [],
+                        "importlist": lists,
+                        "collection": collections,
+                    }[path]
+                )
+            if method == "PUT":
+                if path.startswith("importlist/"):
+                    self.assertFalse(payload["enableAutomaticAdd"])
+                    lists[0] = payload
+                elif path == "collection/20":
+                    self.assertTrue(payload["monitored"])
+                    self.assertEqual("/data/movies", payload["rootFolderPath"])
+                    collections[0] = payload
+                else:
+                    self.fail("Unexpected update or bulk refresh")
+            if method == "DELETE":
+                self.assertEqual(2, lists[0]["qualityProfileId"])
+                self.assertEqual(2, collections[0]["qualityProfileId"])
+                deleted.append(path)
+
+        profiles.migrate(call, "movie", "desired")
+        self.assertEqual(["qualityprofile/1"], deleted)
+
     def test_reassign_verify_delete(self):
         self.run_migration()
 

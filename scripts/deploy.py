@@ -53,6 +53,9 @@ sudo -n tee /etc/nixos/flake.nix >/dev/null <<'FLAKE'
   outputs = {{ managed, ... }}: {{ inherit (managed) nixosConfigurations; }};
 }}
 FLAKE
+sudo -n tee /etc/nixos/configuration.nix >/dev/null <<'ENTRY'
+{{ ... }}: throw "Managed by declarative-dale/nixflix. Use nixos-rebuild --flake /etc/nixos#nixflix or the repository deployment commands."
+ENTRY
 sudo -n nix flake lock /etc/nixos
 """
     subprocess.run(SSH + [REMOTE, script], check=True)
