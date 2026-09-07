@@ -7,6 +7,10 @@
 {
   options.nixflixHost.gpuPassthrough.enable = lib.mkEnableOption "Intel GPU access after hypervisor passthrough is configured";
   config = {
+    hardware.firmware = lib.mkIf config.nixflixHost.gpuPassthrough.enable [ pkgs.linux-firmware ];
+    boot.extraModprobeConfig = lib.mkIf config.nixflixHost.gpuPassthrough.enable ''
+      options i915 enable_guc=2
+    '';
     services.plex.accelerationDevices =
       if config.nixflixHost.gpuPassthrough.enable then [ "/dev/dri/renderD128" ] else [ ];
     virtualisation.oci-containers.containers.stash.extraOptions =

@@ -1,6 +1,8 @@
 import copy
+import base64
 import importlib.util
 import os
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,9 +22,28 @@ def module(name):
 secrets = module("provision-secrets")
 profiles = module("reassign-profiles")
 notifications = module("provision-notifications")
+seerr_notifications = module("configure-seerr-notifications")
 
 
 class NotificationProvisioning(unittest.TestCase):
+    def test_seerr_payload_encoding_and_preserved_destinations(self):
+        settings = {
+            "sonarr": [{"id": 1, "apiKey": "synthetic"}],
+            "main": {"apiKey": "synthetic"},
+        }
+        result = seerr_notifications.configure(
+            copy.deepcopy(settings), "https://requests.example.test"
+        )
+        self.assertEqual(settings["sonarr"], result["sonarr"])
+        self.assertEqual(settings["main"]["apiKey"], result["main"]["apiKey"])
+        webhook = result["notifications"]["agents"]["webhook"]
+        self.assertFalse(webhook["enabled"])
+        payload = json.loads(
+            json.loads(base64.b64decode(webhook["options"]["jsonPayload"]))
+        )
+        self.assertIn("https://requests.example.test/requests", payload["body"])
+        self.assertNotIn("synthetic", json.dumps(payload))
+
     def test_both_destinations_atomic_rotation_and_missing_secret(self):
         values = {
             "DISCORD_APPRISE_URL": "discord://123/synthetic",

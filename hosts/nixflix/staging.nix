@@ -67,7 +67,7 @@ in
       serviceConfig.Type = "oneshot";
       script = ''
         set -eu
-        if systemctl is-active --quiet data.mount nixflix-nas-ready.service; then
+        if systemctl is-active --quiet data.mount && systemctl is-active --quiet nixflix-nas-ready.service; then
           exit 0
         fi
         systemctl start data.mount
