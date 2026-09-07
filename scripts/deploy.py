@@ -2,11 +2,19 @@
 """Build and activate an exact committed revision from the personal fork."""
 
 import argparse
+import os
 import re
 import shlex
 import subprocess
 
 REMOTE = "marty@10.69.0.18"
+SSH = [
+    "ssh",
+    "-F",
+    os.environ.get("NIXFLIX_SSH_CONFIG", "/dev/null"),
+    "-o",
+    "BatchMode=yes",
+]
 REPOSITORY = "git+https://github.com/declarative-dale/nixflix"
 
 
@@ -47,7 +55,7 @@ sudo -n tee /etc/nixos/flake.nix >/dev/null <<'FLAKE'
 FLAKE
 sudo -n nix flake lock /etc/nixos
 """
-    subprocess.run(["ssh", REMOTE, script], check=True)
+    subprocess.run(SSH + [REMOTE, script], check=True)
     if a.action in ("test", "switch", "rollback"):
         subprocess.run(
             [
