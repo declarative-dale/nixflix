@@ -69,6 +69,54 @@ The write probes create and immediately remove empty files in download categorie
 they do not move or rename media. Run this again after reboot. The isolation test
 now rejects production mode and includes the added native services.
 
+### Cutover verification
+
+Production passed test activation, switch, and an unattended reboot. All 17 media
+services returned their expected HTTP responses afterward; the public Seerr status
+endpoint also returned 200. SSH/sudo, the Xen agent, GPU render device, writable
+CIFS mount and service-user category write probes passed. The target had 71 GiB
+free on root and approximately 11 GiB memory available after startup. This is an
+idle/startup observation, not a multi-stream capacity test.
+
+All four Arr libraries and Lidarr retained their previously recorded titles,
+paths, monitored flags and history. Native conversions also preserved these counts:
+
+| Service | Preserved state |
+| --- | --- |
+| Bazarr HD | 195 shows, 5,682 episodes, 352 movies, 1,960 history rows |
+| Bazarr 4K | 70 shows, 1,388 episodes, 105 movies, 107 history rows |
+| Tautulli | 1,860 playback history rows |
+| Audiobookshelf | 1 user, 3 libraries, 24 library items |
+| Readarr | 2 authors, 153 books, 48 history rows |
+| Whisparr | 31 series, 3,205 history rows |
+
+Plex returned five authenticated libraries and its account confirmed an active
+lifetime Plex Pass. A short forced H.264 transcode from NAS media returned a valid
+media segment; Plex reported hardware acceleration requested and an Intel encoder.
+The test session was stopped without sending watched-progress updates. Its report
+is `verification-plex-transcode.json`; HDR tone mapping and multi-stream load were
+not exercised. All seven Prowlarr application tests passed after correcting
+the copied Whisparr key. Dormant Arr indexers were also rewritten from the old
+Docker hostname to local Prowlarr. SAB was idle with an empty queue after startup;
+TLS authentication succeeded with the preserved Eweka and NGD Super credentials.
+
+NZB.su was moved to `https://api.nzb.life` following the
+[official retirement notice](https://nzb.su/?lang=de), and its indexer test passed.
+DOGnzb, DrunkenSlug and altHUB also passed connection tests. NZBPlanet reported
+incorrect credentials, and Tabula Rasa returned HTTP 429; avoid repeated tests
+while rate-limited and review those accounts. Five other configured NNTP endpoints
+did not authenticate in the standalone TLS probe; review their account/endpoint
+settings if they are still intended for use. No download payloads or bulk searches
+were submitted by these checks.
+
+Verification reports are protected files on `.18` under
+`/var/lib/nixflix-migration/verification-production*.json`. The exact deployed
+revision is `/var/lib/nixflix-deploy/deployed`, also pinned by `/etc/nixos/flake.nix`.
+Repository operations on the workstation and target use jj; the target checkout was updated
+to the personal fork's migration bookmark. Discord/Matrix delivery remains disabled
+pending the two pass entries described below. Final client playback and HDR tone
+mapping checks remain useful before declaring every playback scenario validated.
+
 ## Repository workflow
 
 ```sh
