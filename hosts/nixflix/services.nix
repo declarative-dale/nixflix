@@ -174,6 +174,10 @@ in
       c['misc']['host'] = '127.0.0.1'
       c['misc']['port'] = '8080'
       c['misc']['api_key'] = open('/var/lib/nixflix-secrets/current/sabnzbd').read().strip()
+      if 'categories' not in c:
+          c['categories'] = {}
+      for name in ('sonarr', 'sonarr-4k', 'radarr', 'radarr-4k', 'lidarr'):
+          c['categories'][name] = dict(name=name, dir=name, priority='0', pp='3', script='None')
       c.write()
       PY
       chown sabnzbd:media /var/lib/sabnzbd/sabnzbd.ini
@@ -192,7 +196,14 @@ in
         TZ = "America/Chicago";
       }
       // lib.optionalAttrs (name == "audiobookshelf") { PORT = "13378"; }
-      // lib.optionalAttrs (name == "bazarr-4k") { WEBUI_PORTS = "6777/tcp"; };
+      // lib.optionalAttrs (name == "bazarr-4k") { WEBUI_PORTS = "6777/tcp"; }
+      // lib.optionalAttrs (name == "stash") {
+        STASH_CACHE = "/cache/";
+        STASH_STASH = "/data/";
+        STASH_GENERATED = "/generated/";
+        STASH_METADATA = "/metadata/";
+        STASH_CONFIG_FILE = "/root/.stash/config.yml";
+      };
       volumes =
         if name == "stash" then
           [

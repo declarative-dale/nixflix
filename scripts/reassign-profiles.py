@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import sys
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 PROFILES = {
     "sonarr": (8990, "series", "WEB-1080p (Alternative)"),
@@ -34,6 +35,42 @@ def migrate(call, endpoint, desired):
         t["qualityProfileId"] != target for t in after
     ):
         raise ValueError("Verification failed; no obsolete profiles were deleted")
+    # Import lists also hold profile references. Preserve them while changing only
+    # their profile selection; forceSave skips unreachable-provider validation in staging.
+    lists = call("GET", "importlist")
+    for item in lists:
+        if item.get("qualityProfileId") not in (None, target):
+            call(
+                "PUT",
+                f"importlist/{item['id']}?forceSave=true",
+                dict(item, qualityProfileId=target),
+            )
+    if any(
+        item.get("qualityProfileId") not in (None, target)
+        for item in call("GET", "importlist")
+    ):
+        raise ValueError(
+            "Import-list profile verification failed; obsolete profiles retained"
+        )
+    if endpoint == "movie":
+        collections = call("GET", "collection")
+        for collection in collections:
+            if collection.get("qualityProfileId") != target:
+                call(
+                    "PUT",
+                    f"collection/{collection['id']}",
+                    dict(collection, qualityProfileId=target),
+                )
+        after_collections = call("GET", "collection")
+        if any(c.get("qualityProfileId") != target for c in after_collections):
+            raise ValueError(
+                "Collection profile verification failed; obsolete profiles retained"
+            )
+        preserved = lambda items: {
+            c["id"]: (c.get("monitored"), c.get("rootFolderPath")) for c in items
+        }
+        if preserved(collections) != preserved(after_collections):
+            raise ValueError("Collection state changed; obsolete profiles retained")
     for profile in profiles:
         if profile["id"] != target:
             call("DELETE", f"qualityprofile/{profile['id']}")
@@ -60,6 +97,33 @@ def main():
 
     try:
         count = migrate(call, endpoint, profile)
+    except HTTPError as error:
+        try:
+            details = json.loads(error.read())
+            fields = (
+                [
+                    d.get("propertyName", "") + ": " + d.get("errorMessage", "")
+                    for d in details
+                    if isinstance(d, dict)
+                ]
+                if isinstance(details, list)
+                else (
+                    [str(details.get("message", ""))]
+                    if isinstance(details, dict)
+                    else []
+                )
+            )
+            print(
+                ("HTTP " + str(error.code) + " " + "; ".join(fields)).replace(
+                    key, "[redacted]"
+                ),
+                file=sys.stderr,
+            )
+        except (ValueError, TypeError):
+            pass
+        sys.exit(
+            "Profile migration stopped after an API error; no searches or moves were requested."
+        )
     except Exception:
         sys.exit(
             "Profile migration failed; inspect the instance before retrying. No searches or moves were requested."

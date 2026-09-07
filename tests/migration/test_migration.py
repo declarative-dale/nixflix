@@ -54,6 +54,8 @@ class ProfileMigration(unittest.TestCase):
             calls.append((method, path, payload))
             if (method, path) == ("GET", "qualityprofile"):
                 return [{"id": 1, "name": "obsolete"}, {"id": 2, "name": "desired"}]
+            if (method, path) == ("GET", "importlist"):
+                return []
             if (method, path) == ("GET", "series"):
                 return copy.deepcopy(titles)
             if method == "PUT":
