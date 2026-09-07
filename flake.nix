@@ -2,6 +2,7 @@
   description = "Generic NixOS Jellyfin media server configuration with Arr stack";
 
   inputs = {
+    nixpkgs-host.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
@@ -59,6 +60,15 @@
       };
       nixosModules.nixflix = self.nixosModules.default;
 
+      nixosConfigurations.nixflix = inputs.nixpkgs-host.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit inputs; };
+        modules = [
+          self.nixosModules.default
+          ./hosts/nixflix
+        ];
+      };
+
       packages = perSystem (
         {
           system,
@@ -110,6 +120,11 @@
         {
           formatting = treefmt.config.build.check self;
           docs-build = self.packages.${system}.docs;
+          four-instance-eval = import ./tests/migration/four-instance-eval.nix {
+            inherit pkgs;
+            host = self.nixosConfigurations.nixflix;
+            nixosModules = self.nixosModules.default;
+          };
         }
         // tests.vm-tests
         // {
@@ -128,6 +143,20 @@
             nativeBuildInputs = [
               treefmt.config.build.wrapper
               pkgs.yarn-berry_4.yarn-berry-fetcher
+              pkgs.jujutsu
+              pkgs.git
+              pkgs.openssh
+              pkgs.rsync
+              pkgs.jq
+              pkgs.python3
+              pkgs.sqlite
+              pkgs.curl
+              pkgs.just
+              pkgs.shellcheck
+              pkgs.pass
+              pkgs.gnupg
+              pkgs.secretspec
+              pkgs.skopeo
             ]
             ++ (lib.attrValues treefmt.config.build.programs);
 

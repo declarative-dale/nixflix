@@ -713,6 +713,20 @@ types.submodule {
           pp = 3;
           script = "None";
         }
+        ++ lib.optional (config.nixflix.radarr-4k.enable or false) {
+          name = "radarr-4k";
+          dir = "radarr-4k";
+          priority = 0;
+          pp = 3;
+          script = "None";
+        }
+        ++ lib.optional (config.nixflix.sonarr-4k.enable or false) {
+          name = "sonarr-4k";
+          dir = "sonarr-4k";
+          priority = 0;
+          pp = 3;
+          script = "None";
+        }
         ++ lib.optional (config.nixflix.lidarr.enable or false) {
           name = "lidarr";
           dir = "lidarr";
@@ -744,6 +758,12 @@ types.submodule {
         }
         ++ lib.optional (config.nixflix.sonarr-anime.enable or false) {
           name = "sonarr-anime"; dir = "sonarr-anime"; priority = 0; pp = 3; script = "None";
+        }
+        ++ lib.optional (config.nixflix.radarr-4k.enable or false) {
+          name = "radarr-4k"; dir = "radarr-4k"; priority = 0; pp = 3; script = "None";
+        }
+        ++ lib.optional (config.nixflix.sonarr-4k.enable or false) {
+          name = "sonarr-4k"; dir = "sonarr-4k"; priority = 0; pp = 3; script = "None";
         }
         ++ lib.optional (config.nixflix.lidarr.enable or false) {
           name = "lidarr"; dir = "lidarr"; priority = 0; pp = 3; script = "None";

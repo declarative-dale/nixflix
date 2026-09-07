@@ -62,6 +62,8 @@ in
               radarr = getCategory "radarr";
               sonarr = getCategory "sonarr";
               sonarr-anime = getCategory "sonarr-anime";
+              sonarr-4k = getCategory "sonarr-4k";
+              radarr-4k = getCategory "radarr-4k";
               lidarr = getCategory "lidarr";
               prowlarr = getCategory "prowlarr";
             };

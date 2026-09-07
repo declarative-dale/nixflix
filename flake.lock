@@ -32,10 +32,27 @@
         "type": "github"
       }
     },
+    "nixpkgs-host": {
+      "locked": {
+        "lastModified": 1788690626,
+        "narHash": "sha256-+v4I4LawmRD/mVxO7QIAerRrCkElp3YImzWkkUnvOTg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "c25784012c9982bca5b3e0de87e90bbdac8927d3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "mkdocs-catppuccin": "mkdocs-catppuccin",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-host": "nixpkgs-host",
         "treefmt-nix": "treefmt-nix",
         "vpn-confinement": "vpn-confinement"
       }

@@ -23,10 +23,12 @@ in
     ./options.nix
     ./postgres.nix
     ./prowlarr
+    ./radarr-4k.nix
     ./radarr.nix
     ./recyclarr
     ./seerr
     ./sonarr-anime.nix
+    ./sonarr-4k.nix
     ./sonarr.nix
     ./torrentClients
     ./usenetClients

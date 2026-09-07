@@ -28,6 +28,18 @@ let
           description = "The categories to use for the Sonarr Anime instance";
         };
 
+        sonarr-4k = mkOption {
+          type = types.str;
+          default = "sonarr-4k";
+          description = "Download category for sonarr-4k";
+        };
+
+        radarr-4k = mkOption {
+          type = types.str;
+          default = "radarr-4k";
+          description = "Download category for radarr-4k";
+        };
+
         lidarr = mkOption {
           type = types.str;
           default = "lidarr";
