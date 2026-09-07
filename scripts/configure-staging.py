@@ -48,6 +48,27 @@ def main():
     argparse.ArgumentParser(description=__doc__).parse_args()
     os.umask(0o077)
     prowlarr_key = secret("prowlarr")
+    # Official retirement notice: https://nzb.su/ (same accounts and API keys).
+    for indexer in api(9696, prowlarr_key, "GET", "indexer", version="v1"):
+        changed = False
+        for field in indexer.get("fields", []):
+            if field["name"] != "baseUrl":
+                continue
+            url = urlsplit(str(field.get("value", "")))
+            if url.hostname in ("nzb.su", "www.nzb.su", "api.nzb.su"):
+                field["value"] = url._replace(
+                    scheme="https", netloc="api.nzb.life"
+                ).geturl()
+                changed = True
+        if changed:
+            api(
+                9696,
+                prowlarr_key,
+                "PUT",
+                f"indexer/{indexer['id']}?forceSave=true",
+                indexer,
+                version="v1",
+            )
     for app in api(9696, prowlarr_key, "GET", "applications", version="v1"):
         fields = {f["name"]: f for f in app["fields"]}
         port = urlsplit(fields["baseUrl"]["value"]).port
