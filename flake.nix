@@ -107,6 +107,7 @@
             );
           };
         }
+        // import ./scripts/apps.nix { inherit pkgs self; }
       );
 
       formatter = perSystem ({ treefmt, ... }: treefmt.config.build.wrapper);

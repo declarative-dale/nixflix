@@ -2,6 +2,7 @@
 """Exercise missing-credential and missing-NAS behavior on the staging VM only."""
 
 from pathlib import Path
+import argparse
 import os
 import subprocess
 
@@ -42,6 +43,7 @@ def systemctl(*args, check=True):
 
 
 def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
     if os.geteuid() != 0 or Path("/etc/hostname").read_text().strip() != "nixflix":
         raise RuntimeError("Run as root on nixflix only")
     route = subprocess.check_output(["ip", "-n", "nixflix-staging", "route"], text=True)

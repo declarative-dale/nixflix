@@ -2,6 +2,7 @@
 """Rewire copied integrations inside the staging namespace; never submit searches."""
 
 import json
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -36,6 +37,7 @@ def secret(name):
 
 
 def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
     os.umask(0o077)
     prowlarr_key = secret("prowlarr")
     for app in api(9696, prowlarr_key, "GET", "applications", version="v1"):

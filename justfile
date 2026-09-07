@@ -8,23 +8,23 @@ check:
     treefmt --fail-on-change
 
 build revision="migration/nixflix":
-    python3 scripts/deploy.py build '{{revision}}'
+    nix run .#deploy -- build '{{revision}}'
 
 test revision="migration/nixflix":
-    python3 scripts/deploy.py test '{{revision}}'
+    nix run .#deploy -- test '{{revision}}'
 
 switch revision="migration/nixflix":
-    python3 scripts/deploy.py switch '{{revision}}'
+    nix run .#deploy -- switch '{{revision}}'
 
 # Test the selected old revision before making it the boot default.
 rollback revision:
-    python3 scripts/deploy.py test '{{revision}}'
-    python3 scripts/deploy.py rollback '{{revision}}'
+    nix run .#deploy -- test '{{revision}}'
+    nix run .#deploy -- rollback '{{revision}}'
 
 # Run on .18 as marty from a checkout of this repository.
 provision:
-    secretspec run --provider pass -- python3 scripts/provision-secrets.py emit | sudo -n python3 scripts/provision-secrets.py install
+    nix run .#provision
 
 # Run on .18. Provisioning does not enable outbound notifications.
 provision-notifications:
-    secretspec run --profile notifications --provider pass -- python3 scripts/provision-notifications.py emit | sudo -n python3 scripts/provision-notifications.py install
+    nix run .#provision-notifications
