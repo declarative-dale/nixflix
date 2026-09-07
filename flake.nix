@@ -2,6 +2,14 @@
   description = "Generic NixOS Jellyfin media server configuration with Arr stack";
 
   inputs = {
+    trash-guides = {
+      url = "github:TRaSH-Guides/Guides";
+      flake = false;
+    };
+    recyclarr-templates = {
+      url = "github:recyclarr/config-templates";
+      flake = false;
+    };
     nixpkgs-host.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     treefmt-nix = {

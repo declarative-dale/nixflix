@@ -48,13 +48,47 @@
         "type": "github"
       }
     },
+    "recyclarr-templates": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786113688,
+        "narHash": "sha256-4uchNVJHeu3CIPLfmKhYB7cLW9Wu8kTTANVlE/MxxiQ=",
+        "owner": "recyclarr",
+        "repo": "config-templates",
+        "rev": "9faf65ff745d74ab906fd73cadaa25f08eb9d981",
+        "type": "github"
+      },
+      "original": {
+        "owner": "recyclarr",
+        "repo": "config-templates",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "mkdocs-catppuccin": "mkdocs-catppuccin",
         "nixpkgs": "nixpkgs",
         "nixpkgs-host": "nixpkgs-host",
+        "recyclarr-templates": "recyclarr-templates",
+        "trash-guides": "trash-guides",
         "treefmt-nix": "treefmt-nix",
         "vpn-confinement": "vpn-confinement"
+      }
+    },
+    "trash-guides": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788742018,
+        "narHash": "sha256-swR3NIOsyiZoUfQBvuhqPSKxMIyvIiP8+LSScYwIfQ8=",
+        "owner": "TRaSH-Guides",
+        "repo": "Guides",
+        "rev": "56cb176ef4b59d734d3643287e66aafd7c809bd4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "TRaSH-Guides",
+        "repo": "Guides",
+        "type": "github"
       }
     },
     "treefmt-nix": {

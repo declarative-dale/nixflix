@@ -95,6 +95,41 @@ in
     # Leave source download client state intact until explicitly reconciled.
     downloadarr.enable = false;
   };
+  environment.etc."nixflix/recyclarr-settings.yml".source =
+    (pkgs.formats.yaml { }).generate "recyclarr-settings.yml"
+      {
+        resource_providers = [
+          {
+            name = "pinned-guides";
+            type = "trash-guides";
+            path = "${inputs.trash-guides}";
+            replace_default = true;
+          }
+          {
+            name = "pinned-templates";
+            type = "config-templates";
+            path = "${inputs.recyclarr-templates}";
+            replace_default = true;
+          }
+        ];
+      };
+  systemd.services.recyclarr = {
+    after = lib.mkForce [
+      "nixflix-staging-network.service"
+      "sonarr.service"
+      "sonarr-4k.service"
+      "radarr.service"
+      "radarr-4k.service"
+    ];
+    requires = lib.mkForce [
+      "nixflix-staging-network.service"
+      "sonarr.service"
+      "sonarr-4k.service"
+      "radarr.service"
+      "radarr-4k.service"
+    ];
+    preStart = lib.mkBefore "cp /etc/nixflix/recyclarr-settings.yml /var/lib/recyclarr/settings.yml";
+  };
   services.plex = {
     enable = true;
     group = "media";

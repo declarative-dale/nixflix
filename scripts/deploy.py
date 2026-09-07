@@ -15,7 +15,7 @@ SSH = [
     "-o",
     "BatchMode=yes",
 ]
-REPOSITORY = "git+https://github.com/declarative-dale/nixflix"
+REPOSITORY = "github:declarative-dale/nixflix"
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
     ).strip()
     if not re.fullmatch("[0-9a-f]{40}", commit):
         p.error("revision must resolve to exactly one Git commit")
-    flake = f"{REPOSITORY}?rev={commit}"
+    flake = f"{REPOSITORY}/{commit}"
     result = "/var/lib/nixflix-deploy/" + commit
     script = f"""
 set -eu
@@ -59,9 +59,7 @@ sudo -n nix flake lock /etc/nixos
     if a.action in ("test", "switch", "rollback"):
         subprocess.run(
             [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
+                *SSH,
                 REMOTE,
                 'sudo -n true && test "$(hostname)" = nixflix && systemctl is-active xen-guest-agent',
             ],
