@@ -16,18 +16,18 @@ NATIVE = [
     "sabnzbd",
     "plex",
     "seerr",
+    "bazarr",
+    "bazarr-4k",
+    "tautulli",
+    "audiobookshelf",
+    "readarr",
+    "whisparr",
 ]
 CONTAINERS = [
     "podman-" + n
     for n in [
-        "bazarr",
-        "bazarr-4k",
-        "whisparr",
-        "readarr",
         "mylar3",
         "apprise",
-        "tautulli",
-        "audiobookshelf",
         "stash",
     ]
 ]
@@ -46,6 +46,11 @@ def main():
     argparse.ArgumentParser(description=__doc__).parse_args()
     if os.geteuid() != 0 or Path("/etc/hostname").read_text().strip() != "nixflix":
         raise RuntimeError("Run as root on nixflix only")
+    if (
+        Path("/etc/nixflix/mode").exists()
+        and Path("/etc/nixflix/mode").read_text().strip() == "production"
+    ):
+        raise RuntimeError("Isolation test is only valid before production activation")
     route = subprocess.check_output(["ip", "-n", "nixflix-staging", "route"], text=True)
     if route.strip():
         raise RuntimeError("Staging namespace unexpectedly has a route")

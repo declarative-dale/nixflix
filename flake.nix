@@ -137,6 +137,10 @@
             host = self.nixosConfigurations.nixflix;
             nixosModules = self.nixosModules.default;
           };
+          production-eval = import ./tests/migration/production-eval.nix {
+            inherit pkgs;
+            host = self.nixosConfigurations.nixflix-production;
+          };
         }
         // tests.vm-tests
         // {

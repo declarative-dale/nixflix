@@ -44,7 +44,11 @@
       "/data/media/audiobooks:/audiobooks"
       "/data/media/ebooks:/ebooks"
     ];
-    BindPaths = [ "/data/media/podcasts:/podcasts" ];
+    BindPaths = [
+      "/data/media/podcasts:/podcasts"
+      "/var/lib/audiobookshelf/metadata:/metadata"
+      "/var/lib/audiobookshelf/config:/config"
+    ];
   };
   services.readarr = {
     enable = true;
