@@ -15,9 +15,9 @@ just check
 jj commit -m 'Describe the resulting change'
 jj bookmark set migration/nixflix -r @-
 jj git push --remote origin --bookmark migration/nixflix
-just build migration/nixflix
-just test migration/nixflix
-just switch migration/nixflix
+nix run .#deploy -- build migration/nixflix
+nix run .#deploy -- test migration/nixflix
+nix run .#deploy -- switch migration/nixflix
 ```
 
 The deployment command resolves one Git commit with jj and builds that exact
@@ -47,9 +47,9 @@ Services require a real CIFS mount, stop when it disappears, and require a
 root-owned `/var/lib/nixflix-migration/ready/UNIT` marker before they start.
 Validated restored services start through `nixflix-staging.target` after reboot.
 The readiness markers and namespace remain mandatory because copied configurations
-contain live production identities and schedules and the VM has only 4 GiB RAM. Do not remove
+contain live production identities and schedules. Do not remove
 namespace or read-only protections to work around staging errors. The staging
-slice is limited to 3200 MiB so load testing cannot consume all host memory.
+slice has a 10 GiB memory-high threshold and 12 GiB maximum on the 16 GiB VM.
 
 Automatic Arr reconciliation is disabled on this host to preserve restored
 roots, monitored status, history and paths. The reusable modules still integrate
@@ -85,7 +85,7 @@ its bootstrap key has no passphrase and is protected by the marty account's file
 permissions. Add a passphrase/re-encrypt to your preferred key when convenient.
 Runtime services never invoke GPG or pass.
 
-From a checkout on .18, use `nix develop -c just provision`. It resolves through
+From a checkout on .18, use `nix run .#provision`. It resolves through
 pass, then atomically installs a generation under `/var/lib/nixflix-secrets`.
 Root owns the directory (0700) and files (0600). The `current` symlink is switched
 only after all required values validate. Arr uses systemd `LoadCredential` for
@@ -108,9 +108,9 @@ also provisional. Archive Ombi and Wizarr; leave unrelated Ubuntu services alone
 Before later cutover, take final consistent snapshots with source writers stopped,
 verify restored counts/history and service destinations, and explicitly plan
 routing changes. Do not bulk-search, rename, move media, or enable library-wide
-upgrades. Assess concurrent memory pressure first. GPU passthrough and its
-hypervisor configuration remain separate work; validate Intel VA-API and Plex /
-Stash hardware transcoding only after a render device is present.
+upgrades. Assess concurrent memory pressure first. Intel passthrough is now
+present and synthetic encoding tests pass. End-to-end Plex playback and HDR tone
+mapping remain cutover checks, including live Plex Pass entitlement verification.
 
 ## Verified preparation, 2026-09-07
 
@@ -151,8 +151,8 @@ transcoding validation remain for cutover/GPU work.
 All 18 HTTP ports responded during staging (Plex requires authentication).
 Concurrent startup and library/API checks used about 2.7 GiB in the staging slice;
 its memory-high threshold was reached, with zero OOM kills observed. This is limited
-headroom for heavy scans or transcoding: the current 4 GiB allocation should not be
-considered production capacity validation. Hypervisor assignments were unchanged.
+headroom for heavy scans or transcoding: that initial 4 GiB allocation was not
+production capacity validation. See the later RAM/GPU verification below.
 
 `test-isolation.py` verified missing API credentials prevent startup and NAS loss
 stops all media units without local fallback writes, then restored the services.
@@ -165,9 +165,9 @@ Useful operations on .18:
 ```sh
 sudo systemctl status nixflix-staging.target
 sudo ip netns exec nixflix-staging curl http://127.0.0.1:5055/api/v1/status
-sudo python3 scripts/validate-state.py /var/lib/nixflix-migration/snapshot-2026-09-07
+sudo nix run .#validate-state -- /var/lib/nixflix-migration/snapshot-2026-09-07
 # Temporarily interrupts ONLY staged services and restores them:
-sudo python3 scripts/test-isolation.py
+sudo nix run .#test-isolation
 ```
 
 To inspect a staged UI from the workstation without allowing outbound traffic,
@@ -213,7 +213,7 @@ history):
 ```sh
 pass insert secretspec/nixflix/notifications/DISCORD_APPRISE_URL
 pass insert secretspec/nixflix/notifications/MATRIX_APPRISE_URL
-nix develop -c just provision-notifications
+nix run .#provision-notifications
 ```
 
 The values are Apprise destination URLs: `discord://WEBHOOK_ID/WEBHOOK_TOKEN`
@@ -239,3 +239,30 @@ HTTP. Existing `.12` tunnel routes are unchanged. Keep Apprise's API private
 when production networking is implemented. `notify.816913.xyz` still routes to
 source Notifiarr and should be retired deliberately at cutover; Matrix and
 other unrelated tunnel routes must remain intact.
+
+## Verification after RAM and GPU upgrade
+
+After adding Linux firmware and `i915 enable_guc=2`, a reboot loaded the Rocket
+Lake DMC firmware and authenticated HuC for all workloads. Before this fix a
+synthetic encode hung the GPU; after reboot, H.264 and 10-bit HEVC VA-API encoding
+both completed successfully inside Stash. Stash itself detects H.264 and VP9
+VA-API encoders. Its v0.29.3 release ignores arbitrary FFmpeg environment
+variables, so a managed pre-start updates the supported YAML keys atomically.
+Plex retains `HardwareAcceleratedCodecs=1` and its service user can access VA-API.
+
+All restored Arr library identities, paths, monitored flags and history still
+match the protected snapshot. Missing-credential and missing-NAS tests passed
+again through the `test-isolation` flake app and restored staged services.
+The Seerr Caddy route returns HTTP 200 after following its login redirect.
+Apprise's exact pinned image parsed both destination formats and started with
+restricted read-only configuration in an isolated test container. Locked config
+read, write and delete APIs returned HTTP 403. No real notifications were sent.
+Real Discord/Matrix credentials and end-to-end delivery remain pending.
+
+Use `nix develop -c python3` for ad hoc Python. Packaged migration commands use
+their pinned Python and tool dependencies through `nix run .#APP`; `just` recipes
+remain shortcuts. `deploy`, `snapshot`, `restore`, `configure-staging`,
+`reassign-profiles`, `validate-state`, `test-isolation`, `provision`, and
+`provision-notifications` are available. Run source snapshot tools on Ubuntu;
+target state/provisioning tools on `.18`; deployment from the workstation's jj
+checkout. API-based migration tools must execute inside the staging namespace.

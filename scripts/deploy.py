@@ -16,6 +16,15 @@ SSH = [
     "BatchMode=yes",
 ]
 REPOSITORY = "github:declarative-dale/nixflix"
+STAGING_CHECK = """
+# Reconcile target wants after a namespace dependency was restarted by activation.
+sudo -n systemctl restart nixflix-staging.target
+for unit in $(systemctl show nixflix-staging.target --property=Wants --value); do
+  if sudo -n test -e "/var/lib/nixflix-migration/ready/${unit%.service}"; then
+    systemctl is-active --quiet "$unit"
+  fi
+done
+"""
 
 
 def main():
@@ -38,6 +47,7 @@ sudo -n nix build --no-write-lock-file --out-link {result} {shlex.quote(flake + 
     if a.action == "test":
         script += f"""
 sudo -n {result}/bin/switch-to-configuration test
+{STAGING_CHECK}
 sudo -n sh -c 'printf "%s\\n" {commit} > /var/lib/nixflix-deploy/tested'
 """
     elif a.action in ("switch", "rollback"):
@@ -45,6 +55,7 @@ sudo -n sh -c 'printf "%s\\n" {commit} > /var/lib/nixflix-deploy/tested'
 test "$(cat /var/lib/nixflix-deploy/tested)" = {commit}
 sudo -n nix-env --profile /nix/var/nix/profiles/system --set {result}
 sudo -n {result}/bin/switch-to-configuration switch
+{STAGING_CHECK}
 sudo -n sh -c 'printf "%s\\n" {commit} > /var/lib/nixflix-deploy/deployed'
 sudo -n tee /etc/nixos/flake.nix >/dev/null <<'FLAKE'
 {{
