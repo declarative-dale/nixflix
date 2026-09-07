@@ -79,6 +79,9 @@
       nixosConfigurations.nixflix-production = self.nixosConfigurations.nixflix.extendModules {
         modules = [ { nixflixHost.production.enable = true; } ];
       };
+      nixosConfigurations.nixflix-staging = self.nixosConfigurations.nixflix.extendModules {
+        modules = [ { nixflixHost.production.enable = lib.mkForce false; } ];
+      };
 
       packages = perSystem (
         {
@@ -134,7 +137,7 @@
           docs-build = self.packages.${system}.docs;
           four-instance-eval = import ./tests/migration/four-instance-eval.nix {
             inherit pkgs;
-            host = self.nixosConfigurations.nixflix;
+            host = self.nixosConfigurations.nixflix-staging;
             nixosModules = self.nixosModules.default;
           };
           production-eval = import ./tests/migration/production-eval.nix {

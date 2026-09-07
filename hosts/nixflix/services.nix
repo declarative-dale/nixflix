@@ -11,6 +11,7 @@ let
   secret = name: { _secret = "/var/lib/nixflix-secrets/current/${name}"; };
   arr = name: port: {
     enable = true;
+    settings.server.bindaddress = if production then "*" else "127.0.0.1";
     config.apiKey = secret name;
     config.hostConfig = {
       inherit port;
@@ -70,6 +71,7 @@ in
     lidarr = arr "lidarr" 8686;
     prowlarr = {
       enable = true;
+      settings.server.bindaddress = if production then "*" else "127.0.0.1";
       config.apiKey = secret "prowlarr";
       config.hostConfig = {
         inherit bindAddress;

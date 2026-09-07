@@ -103,6 +103,7 @@
     ];
   };
   nixflixHost.gpuPassthrough.enable = true;
+  nixflixHost.production.enable = true;
   fileSystems."/data" = {
     device = "//10.69.0.10/data";
     fsType = "cifs";
