@@ -186,3 +186,56 @@ For later GPU validation set `nixflixHost.gpuPassthrough.enable = true` only aft
 passthrough exists, then test VA-API and real Plex/Stash transcoding. Production
 cutover still requires a final consistent transfer, tested cloud authentication,
 provider credentials, deliberate routing changes, and a memory/concurrency decision.
+
+
+## RAM, GPU, notifications and proxy preparation
+
+The VM now has 16 GiB RAM and Intel UHD 750 (`8086:4c8a`) passthrough.
+The staging slice allows 10 GiB before throttling and 12 GiB maximum, retaining
+headroom for the OS and Nix builds. Plex receives the render device. Stash uses
+the host's pinned FFmpeg and Intel driver through read-only store/driver mounts;
+the preserved Alpine image does not include the Intel userspace driver.
+
+A NAS recovery timer retries a failed boot mount every minute and starts ready
+staging services when connectivity returns. Stop `nixflix-nas-recover.timer` and
+its service before intentionally unmounting the NAS for maintenance.
+
+Notifiarr is removed from the target service definitions; its snapshots and
+application state remain available. Apprise API is pinned by digest and prepared
+for Discord plus Matrix. It has no published container port or proxy route.
+Upstream Notif covers HD/4K Sonarr and Radarr plus Lidarr, preserves unmanaged
+connections during migration, and resolves arbitrary secret fields at runtime.
+Its configuration jobs are manual during staging.
+
+Provision on `.18` as marty, using hidden pass input (values never enter shell
+history):
+
+```sh
+pass insert secretspec/nixflix/notifications/DISCORD_APPRISE_URL
+pass insert secretspec/nixflix/notifications/MATRIX_APPRISE_URL
+nix develop -c just provision-notifications
+```
+
+The values are Apprise destination URLs: `discord://WEBHOOK_ID/WEBHOOK_TOKEN`
+and `matrixs://ACCESS_TOKEN@HOMESERVER/!ROOM_ID` (URL-encode credentials where
+required). The installer requires both, writes an atomic root-owned mode-0600
+JSON/YAML configuration outside the Nix store, and is safe to repeat. Runtime
+copies are mode 0400 and readable only by the dedicated Apprise user.
+Provisioning alone does not start delivery. A ready marker and explicit testing
+are required before activating Apprise and the Arr notification jobs.
+
+Seerr's managed pre-start prepares an Apprise webhook for request/approval,
+availability and issue events, disabled during staging. It preserves a local
+backup of the old settings. Approval messages link to authenticated Seerr at
+`https://seeme.dalebox.pw/requests`; there is no unauthenticated approval endpoint
+or embedded API key. At production activation, enable this webhook deliberately
+and remove the staging pre-start's forced disabled setting.
+
+Caddy uses upstream's virtual-host helpers inside the loopback-only namespace.
+The existing `seeme.dalebox.pw` request hostname is preserved. Other generated
+service subdomains under `dalebox.pw` are prepared routes, not published DNS.
+The current Cloudflare tunnel terminates HTTPS; the staged Caddy origin uses
+HTTP. Existing `.12` tunnel routes are unchanged. Keep Apprise's API private
+when production networking is implemented. `notify.816913.xyz` still routes to
+source Notifiarr and should be retired deliberately at cutover; Matrix and
+other unrelated tunnel routes must remain intact.

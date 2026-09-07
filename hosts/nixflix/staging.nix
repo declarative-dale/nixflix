@@ -61,6 +61,21 @@ in
     ];
   };
   systemd.services = {
+    nixflix-nas-recover = {
+      description = "Recover staged media services after NAS connectivity returns";
+      path = [ pkgs.systemd ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        set -eu
+        if systemctl is-active --quiet data.mount nixflix-nas-ready.service; then
+          exit 0
+        fi
+        systemctl start data.mount
+        systemctl start nixflix-nas-ready.service
+        systemctl start ${lib.concatMapStringsSep " " (n: "${n}.service") (native ++ containers)}
+      '';
+    };
+
     nixflix-staging-network = {
       description = "Loopback-only namespace for cloned media identities";
       wantedBy = [ "multi-user.target" ];
@@ -114,8 +129,18 @@ in
     serviceConfig.NetworkNamespacePath = "/run/netns/nixflix-staging";
   });
   systemd.slices.nixflix-staging.sliceConfig = {
-    MemoryHigh = "2800M";
-    MemoryMax = "3200M";
+    # 16 GiB VM: leave room for the OS and target-side Nix builds.
+    MemoryHigh = "10G";
+    MemoryMax = "12G";
+  };
+  # network-online does not guarantee that the NAS itself is reachable. Retry
+  # failed boot mounts, then recover only applications previously staged/ready.
+  systemd.timers.nixflix-nas-recover = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "1min";
+      OnUnitInactiveSec = "1min";
+    };
   };
   systemd.timers.recyclarr.wantedBy = lib.mkForce [ ];
   # Do not create media/download directories on the read-only production mount.

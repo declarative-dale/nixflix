@@ -24,7 +24,7 @@ CONTAINERS = [
         "whisparr",
         "readarr",
         "mylar3",
-        "notifiarr",
+        "apprise",
         "tautulli",
         "audiobookshelf",
         "stash",
@@ -47,6 +47,10 @@ def main():
     route = subprocess.check_output(["ip", "-n", "nixflix-staging", "route"], text=True)
     if route.strip():
         raise RuntimeError("Staging namespace unexpectedly has a route")
+    recovery_timer = "nixflix-nas-recover.timer"
+    recovery_active = (
+        systemctl("is-active", "--quiet", recovery_timer, check=False).returncode == 0
+    )
     running = [
         s
         for s in NATIVE + CONTAINERS
@@ -70,6 +74,7 @@ def main():
         systemctl("daemon-reload")
         systemctl("reset-failed", "sonarr", check=False)
     try:
+        systemctl("stop", recovery_timer, "nixflix-nas-recover.service")
         systemctl("stop", "data.mount")
         systemctl("mask", "--runtime", "data.mount")
         if systemctl("start", "sonarr", check=False).returncode == 0:
@@ -101,6 +106,8 @@ def main():
         systemctl("start", "data.mount")
         if running:
             systemctl("start", *running)
+        if recovery_active:
+            systemctl("start", recovery_timer)
     print("Restored the previously running staged services", flush=True)
 
 

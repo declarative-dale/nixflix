@@ -167,8 +167,10 @@ let
 
     services.default = [
       "sonarr"
+      "sonarr-4k"
       "sonarr-anime"
       "radarr"
+      "radarr-4k"
       "lidarr"
     ];
 
@@ -228,6 +230,12 @@ in
           type = types.bool;
           default = true;
           description = "Whether to enable Notif.";
+        };
+
+        pruneUnmanaged = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Delete notifications not declared here. Disable while migrating preserved application state.";
         };
 
         jellyfin = mkOption {

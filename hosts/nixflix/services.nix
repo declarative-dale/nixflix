@@ -40,10 +40,6 @@ let
       port = 8090;
       internal = 8090;
     };
-    notifiarr = {
-      port = 5454;
-      internal = 5454;
-    };
     tautulli = {
       port = 8181;
       internal = 8181;

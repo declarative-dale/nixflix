@@ -15,6 +15,7 @@ let
       builtins.removeAttrs cfg [
         "extraNotifications"
         "enable"
+        "pruneUnmanaged"
       ]
     )
     ++ cfg.extraNotifications
@@ -22,8 +23,10 @@ let
 
   arrServices = [
     "sonarr"
+    "sonarr-4k"
     "sonarr-anime"
     "radarr"
+    "radarr-4k"
     "lidarr"
   ];
 
@@ -104,48 +107,34 @@ let
           )
 
           # Delete notifications that are not in the configuration
-          echo "Removing notifications not in configuration..."
-          echo "$NOTIFICATIONS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r notification; do
-            NOTIFICATION_NAME=$(echo "$notification" | ${pkgs.jq}/bin/jq -r '.name')
-            NOTIFICATION_ID=$(echo "$notification" | ${pkgs.jq}/bin/jq -r '.id')
+          ${optionalString cfg.pruneUnmanaged ''
+            echo "Removing notifications not in configuration..."
+            echo "$NOTIFICATIONS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r notification; do
+              NOTIFICATION_NAME=$(echo "$notification" | ${pkgs.jq}/bin/jq -r '.name')
+              NOTIFICATION_ID=$(echo "$notification" | ${pkgs.jq}/bin/jq -r '.id')
 
-            if ! echo "$CONFIGURED_NAMES" | ${pkgs.jq}/bin/jq -e --arg name "$NOTIFICATION_NAME" 'index($name)' >/dev/null 2>&1; then
-              echo "Deleting notification not in config: $NOTIFICATION_NAME (ID: $NOTIFICATION_ID)"
-              ${
-                mkSecureCurl serviceConfig.apiKey {
-                  url = "$BASE_URL/notification/$NOTIFICATION_ID";
-                  method = "DELETE";
-                  extraArgs = "-Sf";
-                }
-              } >/dev/null || echo "Warning: Failed to delete notification $NOTIFICATION_NAME"
-            fi
-          done
+              if ! echo "$CONFIGURED_NAMES" | ${pkgs.jq}/bin/jq -e --arg name "$NOTIFICATION_NAME" 'index($name)' >/dev/null 2>&1; then
+                echo "Deleting notification not in config: $NOTIFICATION_NAME (ID: $NOTIFICATION_ID)"
+                ${
+                  mkSecureCurl serviceConfig.apiKey {
+                    url = "$BASE_URL/notification/$NOTIFICATION_ID";
+                    method = "DELETE";
+                    extraArgs = "-Sf";
+                  }
+                } >/dev/null || echo "Warning: Failed to delete notification $NOTIFICATION_NAME"
+              fi
+            done
+          ''}
 
           ${concatMapStringsSep "\n" (
             notificationConfig:
             let
               notificationName = notificationConfig.name;
               inherit (notificationConfig) implementationName;
-              apiKey = notificationConfig.apiKey or null;
-              username = notificationConfig.username or null;
-              password = notificationConfig.password or null;
-              accessToken = notificationConfig.accessToken or null;
-              allOverrides = builtins.removeAttrs notificationConfig [
-                "implementationName"
-                "apiKey"
-                "username"
-                "password"
-                "accessToken"
-              ];
+              allOverrides = builtins.removeAttrs notificationConfig [ "implementationName" ];
               fieldOverrides = filterAttrs (name: value: value != null && !hasPrefix "_" name) allOverrides;
-              fieldOverridesJson = builtins.toJSON fieldOverrides;
-
-              jqSecrets = secrets.mkJqSecretArgs {
-                apiKey = if apiKey == null then "" else apiKey;
-                username = if username == null then "" else username;
-                password = if password == null then "" else password;
-                accessToken = if accessToken == null then "" else accessToken;
-              };
+              fieldOverridesJson = builtins.toJSON (secrets.stripSecretRefs fieldOverrides);
+              jqSecrets = secrets.mkNestedJqSecretArgs fieldOverrides;
             in
             ''
               echo "Processing notification: ${notificationName}"
@@ -155,16 +144,8 @@ let
                 local overrides="$2"
 
                 echo "$notification_json" | ${pkgs.jq}/bin/jq \
-                  ${jqSecrets.flagsString} \
-                  --argjson overrides "$overrides" '
-                    .fields[] |= (
-                      if .name == "apiKey" and ${jqSecrets.refs.apiKey} != "" then .value = ${jqSecrets.refs.apiKey}
-                      elif .name == "username" and ${jqSecrets.refs.username} != "" then .value = ${jqSecrets.refs.username}
-                      elif .name == "password" and ${jqSecrets.refs.password} != "" then .value = ${jqSecrets.refs.password}
-                      elif .name == "accessToken" and ${jqSecrets.refs.accessToken} != "" then .value = ${jqSecrets.refs.accessToken}
-                      else .
-                      end
-                    )
+                  --slurpfile overrides <(printf '%s' "$overrides") '
+                    $overrides[0] as $overrides
                     | . + $overrides
                     | .fields[] |= (
                         . as $field |
@@ -177,7 +158,10 @@ let
                   '
               }
 
-              FIELD_OVERRIDES=${escapeShellArg fieldOverridesJson}
+              FIELD_OVERRIDES=$(${pkgs.jq}/bin/jq -cn \
+                ${jqSecrets.flagsString} \
+                --argjson overrides ${escapeShellArg fieldOverridesJson} \
+                '$overrides ${concatMapStrings (assignment: " | " + assignment) jqSecrets.assignments}')
 
               EXISTING_NOTIFICATION=$(echo "$NOTIFICATIONS" | ${pkgs.jq}/bin/jq -r --arg name ${escapeShellArg notificationName} '.[] | select(.name == $name) | @json' || echo "")
 

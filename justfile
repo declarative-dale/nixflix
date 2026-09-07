@@ -24,3 +24,7 @@ rollback revision:
 # Run on .18 as marty from a checkout of this repository.
 provision:
     secretspec run --provider pass -- python3 scripts/provision-secrets.py emit | sudo -n python3 scripts/provision-secrets.py install
+
+# Run on .18. Provisioning does not enable outbound notifications.
+provision-notifications:
+    secretspec run --profile notifications --provider pass -- python3 scripts/provision-notifications.py emit | sudo -n python3 scripts/provision-notifications.py install

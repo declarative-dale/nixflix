@@ -5,6 +5,8 @@
     ./services.nix
     ./staging.nix
     ./gpu.nix
+    ./notifications.nix
+    ./proxy.nix
     (modulesPath + "/virtualisation/xen-domU.nix")
   ];
   boot.loader.systemd-boot.enable = true;
@@ -40,6 +42,7 @@
     iproute2
     socat
     libva-utils
+    pciutils
   ];
   users.users.marty = {
     isNormalUser = true;
@@ -92,6 +95,7 @@
       pkgs.intel-vaapi-driver
     ];
   };
+  nixflixHost.gpuPassthrough.enable = true;
   fileSystems."/data" = {
     device = "//10.69.0.10/data";
     fsType = "cifs";

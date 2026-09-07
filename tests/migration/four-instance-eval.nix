@@ -45,4 +45,11 @@ assert cfg.services.plex.enable && cfg.services.seerr.enable && !cfg.nixflix.jel
 assert builtins.elem "ro" cfg.fileSystems."/data".options;
 assert builtins.hasAttr "sonarr-4k" cfg.services.recyclarr.configuration.sonarr;
 assert builtins.hasAttr "radarr-4k" cfg.services.recyclarr.configuration.radarr;
+assert builtins.all (name: builtins.hasAttr "${name}-notifications" cfg.systemd.services) names;
+assert !cfg.nixflix.notif.pruneUnmanaged;
+assert !builtins.hasAttr "notifiarr" cfg.virtualisation.oci-containers.containers;
+assert
+  cfg.systemd.services.caddy.serviceConfig.NetworkNamespacePath == "/run/netns/nixflix-staging";
+assert builtins.hasAttr "http://seeme.dalebox.pw" cfg.services.caddy.virtualHosts;
+assert cfg.services.plex.accelerationDevices == [ "/dev/dri/renderD128" ];
 pkgs.runCommand "four-instance-eval" { } "touch $out"

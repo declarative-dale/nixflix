@@ -19,6 +19,31 @@ def module(name):
 
 secrets = module("provision-secrets")
 profiles = module("reassign-profiles")
+notifications = module("provision-notifications")
+
+
+class NotificationProvisioning(unittest.TestCase):
+    def test_both_destinations_atomic_rotation_and_missing_secret(self):
+        values = {
+            "DISCORD_APPRISE_URL": "discord://123/synthetic",
+            "MATRIX_APPRISE_URL": "matrixs://synthetic@example.test/!room",
+        }
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "credentials"
+            notifications.install(values, root)
+            target = root / "notifications.json"
+            before = target.read_bytes()
+            inode = target.stat().st_ino
+            notifications.install(values, root)
+            self.assertEqual(inode, target.stat().st_ino)
+            self.assertEqual(0o600, target.stat().st_mode & 0o777)
+            with self.assertRaises(ValueError):
+                notifications.install(dict(values, MATRIX_APPRISE_URL=""), root)
+            self.assertEqual(before, target.read_bytes())
+            notifications.install(
+                dict(values, DISCORD_APPRISE_URL="discord://123/rotated"), root
+            )
+            self.assertNotEqual(before, target.read_bytes())
 
 
 class Provisioning(unittest.TestCase):
