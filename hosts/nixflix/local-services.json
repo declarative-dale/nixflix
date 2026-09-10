@@ -7,6 +7,7 @@
   "publicAuthServices": ["prowlarr", "readarr", "mylar3", "lidarr", "tautulli"],
   "publicServices": ["plex", "seerr", "prowlarr", "audiobookshelf", "readarr", "mylar3", "lidarr", "tautulli"],
   "services": {
+    "homepage": 8082,
     "plex": 32400,
     "seerr": 5055,
     "seeme": 5055,

@@ -144,6 +144,12 @@
             inherit pkgs;
             host = self.nixosConfigurations.nixflix-production;
           };
+          homepage-eval = import ./tests/migration/homepage-eval.nix {
+            inherit pkgs;
+            host = self.nixosConfigurations.nixflix-production;
+            staging = self.nixosConfigurations.nixflix-staging;
+            nixosModules = self.nixosModules.default;
+          };
         }
         // tests.vm-tests
         // {

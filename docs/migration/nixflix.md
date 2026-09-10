@@ -6,6 +6,11 @@ The host uses locked NixOS 26.05; the project's original unstable input is retai
 
 ## HTTPS, DNS and remote access
 
+The [Homepage dashboard](../examples/homepage.md) configuration adds a LAN
+landing page on port 8082 and `homepage.vm.internal` after host/router deployment.
+The [proposed quality policy](quality-policy.md) describes the three codec/size
+tiers; it does not apply profile changes or enable automatic Recyclarr sync.
+
 The service manifest `hosts/nixflix/local-services.json` controls the router's
 proxy and DNS configuration. Every media service has a LAN-only address under
 `vm.internal`, using Caddy's built-in CA and standard HTTPS port 443. For example:

@@ -12,6 +12,7 @@
     ./staging.nix
     ./production.nix
     ./gpu.nix
+    ./homepage.nix
     ./notifications.nix
     ./proxy.nix
     (modulesPath + "/virtualisation/xen-domU.nix")

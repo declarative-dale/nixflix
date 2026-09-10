@@ -15,6 +15,7 @@ in
     ./downloadarr
     ./flaresolverr.nix
     ./globals.nix
+    ./homepage.nix
     ./jellyfin
     ./lidarr
     ./maintainerr
