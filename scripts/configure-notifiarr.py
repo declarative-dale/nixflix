@@ -143,7 +143,15 @@ def connect_seerr(app, key):
         supportVariables=False,
     )
     desired["options"].pop("authHeader", None)
-    if current == desired:
+    # Seerr versions return either parsed JSON or JSON text from this endpoint.
+    comparison = copy.deepcopy(current)
+    old_payload = comparison["options"].get("jsonPayload")
+    if isinstance(old_payload, str):
+        old_payload = json.loads(old_payload)
+    comparison["options"]["jsonPayload"] = old_payload
+    expected = copy.deepcopy(desired)
+    expected["options"]["jsonPayload"] = json.loads(desired["options"]["jsonPayload"])
+    if comparison == expected:
         return
     backup("seerr", current)
     request(url, app["api_key"], "POST", desired)

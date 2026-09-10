@@ -136,6 +136,12 @@ class NotifiarrTest(unittest.TestCase):
         with patch.object(connections, "request", return_value=current) as request:
             connections.connect_seerr(app, "key")
             self.assertEqual(request.call_count, 1)
+        current["options"]["jsonPayload"] = json.loads(
+            current["options"]["jsonPayload"]
+        )
+        with patch.object(connections, "request", return_value=current) as request:
+            connections.connect_seerr(app, "key")
+            self.assertEqual(request.call_count, 1)
 
     def test_preserves_active_unrelated_webhooks(self):
         app = {"url": "http://localhost", "api_key": "unused", "name": "bazarr"}
