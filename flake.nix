@@ -92,7 +92,7 @@
         (import ./docs { inherit pkgs inputs; })
         // {
           default = self.packages.${system}.docs;
-          inherit (pkgs) maintainerr;
+          inherit (pkgs) maintainerr notifiarr;
         }
       );
 
@@ -149,6 +149,11 @@
             host = self.nixosConfigurations.nixflix-production;
             staging = self.nixosConfigurations.nixflix-staging;
             nixosModules = self.nixosModules.default;
+          };
+          notifiarr-eval = import ./tests/migration/notifiarr-eval.nix {
+            inherit pkgs;
+            host = self.nixosConfigurations.nixflix-production;
+            staging = self.nixosConfigurations.nixflix-staging;
           };
         }
         // tests.vm-tests

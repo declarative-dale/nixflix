@@ -116,6 +116,11 @@ All Arr services (Sonarr, Radarr, Lidarr, Prowlarr) support:
 
 - Automatic cleanup of old media
 
+### Notifiarr
+
+- Native client with runtime secrets and configurable media integrations
+- [Module configuration and personal host provisioning](docs/examples/notifiarr.md)
+
 ## Development
 
 Enter development shell:

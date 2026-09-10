@@ -56,6 +56,11 @@ in
   ];
   configure-staging = script "configure-staging" [ pkgs.systemd ];
   provision = provision "provision" "default" "provision-secrets";
+  provision-notifiarr = app "provision-notifiarr" [ pkgs.secretspec pkgs.pass pkgs.gnupg ] ''
+    secretspec --file ${self}/secretspec-notifiarr.toml run --profile notifiarr --provider pass -- \
+      ${python}/bin/python3 ${self}/scripts/provision-notifiarr.py emit | \
+      /run/wrappers/bin/sudo -n ${python}/bin/python3 ${self}/scripts/provision-notifiarr.py install
+  '';
   provision-notifications =
     provision "provision-notifications" "notifications"
       "provision-notifications";

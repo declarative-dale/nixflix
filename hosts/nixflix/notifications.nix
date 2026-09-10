@@ -74,7 +74,7 @@ in
   # or outbound delivery from a clone. Missing credentials leave it inactive.
   systemd.services = lib.mkMerge [
     {
-      seerr.preStart = ''
+      seerr.preStart = lib.mkIf (!config.nixflix.notifiarr.enable) ''
         ${pkgs.python3}/bin/python3 ${../../scripts/configure-seerr-notifications.py} /var/lib/seerr/settings.json --application-url https://seeme.dalebox.pw
       '';
       podman-apprise = {

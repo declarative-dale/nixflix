@@ -21,6 +21,7 @@ in
     ./maintainerr
     ./navidrome
     ./notif
+    ./notifiarr
     ./options.nix
     ./postgres.nix
     ./prowlarr

@@ -14,6 +14,7 @@
     ./gpu.nix
     ./homepage.nix
     ./notifications.nix
+    ./notifiarr.nix
     ./proxy.nix
     (modulesPath + "/virtualisation/xen-domU.nix")
   ];
